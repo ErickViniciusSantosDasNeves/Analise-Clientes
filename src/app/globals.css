@@ -57,3 +57,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .botao-sec { display: inline-block; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); color: var(--accent); background: #fff; cursor: pointer; font-size: 15px; }
 label.sec-arquivo { flex-direction: row; color: inherit; font-size: inherit; }
 td .nota { font-size: 12px; }
+table.composicao { margin: 8px 0; font-size: 13px; }
+table.composicao td { padding: 5px 4px; }
+table.composicao td .nota { font-size: 12px; }
+table.composicao tr.total-linha td { font-weight: 700; font-size: 15px; border-bottom: none; border-top: 2px solid var(--ink); }

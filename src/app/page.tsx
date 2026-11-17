@@ -267,26 +267,52 @@ export default function Pagina() {
   );
 }
 
+const SIGNIFICADO: Record<Cenario["codigo"], string> = {
+  A: "Paga ou parcela as pendências, entrega as declarações e o cliente segue como MEI.",
+  B: "Paga as pendências e encerra o CNPJ. Para quem vai parar de trabalhar.",
+  C: "Encerra o MEI sem pagar agora (a dívida passa para o CPF) e abre uma ME nova no Simples.",
+  D: "Paga ou parcela as pendências e o mesmo CNPJ passa de MEI para ME no Simples.",
+};
+
 function CartaoCenario({ c, melhor }: { c: Cenario; melhor: boolean }) {
+  const mensal = c.custoMensal.reduce((s, l) => s + l.valor, 0);
   return (
     <div className={`cenario ${melhor ? "melhor" : ""} ${c.viavel ? "" : "inviavel"}`}>
       <h3>{c.codigo}. {c.titulo}</h3>
       {melhor && <span className="tag">Menor desembolso</span>}
       {!c.viavel && <span className="tag ruim">Não viável</span>}
-      <div className="total">{brl(c.desembolso12m)}</div>
-      <div className="nota">desembolso em 12 meses{c.regime ? ` · ${c.regime}` : ""}</div>
-      <ul>
-        {c.regularizacao > 0 && (
-          <li>
-            Regularização: {brl(c.regularizacao)}
-            {c.parcelaRegularizacao && c.parcelaRegularizacao.parcelas > 1 && ` (ou ${c.parcelaRegularizacao.parcelas}x de ${brl(c.parcelaRegularizacao.valor)})`}
-          </li>
-        )}
-        {c.custoUnico.map((l) => <li key={l.item}>{l.item}: {brl(l.valor)}</li>)}
-        {c.custoMensal.map((l) => <li key={l.item}>{l.item}: {brl(l.valor)}/mês</li>)}
-        {c.debitoRemanescente > 0 && <li>Débito que continua no CPF: {brl(c.debitoRemanescente)}</li>}
-      </ul>
-      {c.alertas.map((a) => <div key={a} className="alerta">{a}</div>)}
+      <p className="nota" style={{ margin: "6px 0" }}>{SIGNIFICADO[c.codigo]}</p>
+      <table className="composicao">
+        <tbody>
+          {c.regularizacao > 0 && (
+            <tr>
+              <td>
+                Regularizar pendências
+                {c.parcelaRegularizacao && c.parcelaRegularizacao.parcelas > 1 && (
+                  <div className="nota">ou {c.parcelaRegularizacao.parcelas}x de {brl(c.parcelaRegularizacao.valor)}</div>
+                )}
+              </td>
+              <td className="num">{brl(c.regularizacao)}</td>
+            </tr>
+          )}
+          {c.custoUnico.map((l) => (
+            <tr key={l.item}><td>{l.item}</td><td className="num">{brl(l.valor)}</td></tr>
+          ))}
+          {c.custoMensal.map((l) => (
+            <tr key={l.item}>
+              <td>{l.item}<div className="nota">{brl(l.valor)} por mês × 12</div></td>
+              <td className="num">{brl(l.valor * 12)}</td>
+            </tr>
+          ))}
+          <tr className="total-linha"><td>Total em 12 meses</td><td className="num">{brl(c.desembolso12m)}</td></tr>
+        </tbody>
+      </table>
+      <div className="nota">
+        {mensal > 0 ? `Depois de resolvido: ${brl(mensal)} por mês` : "Sem custo mensal depois da baixa"}
+        {c.regime ? ` · ${c.regime}` : ""}
+      </div>
+      {c.debitoRemanescente > 0 && <div className="alerta">Fora do total: {brl(c.debitoRemanescente)} de débito que continua no CPF do titular.</div>}
+      {c.alertas.filter((a) => !a.includes("continuam no CPF")).map((a) => <div key={a} className="alerta">{a}</div>)}
     </div>
   );
 }

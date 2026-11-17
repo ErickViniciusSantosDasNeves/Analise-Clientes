@@ -34,7 +34,7 @@ npm test         # testes do motor de cálculo
 1. Crie uma conta em vercel.com entrando com o GitHub.
 2. "Add New Project" e importe o repositório `analise-clientes`. A Vercel detecta o Next.js sozinha.
 3. Em Settings > Environment Variables, cadastre as variáveis do Integra Contador abaixo.
-4. Proteja o acesso (Settings > Deployment Protection) para que só a equipe do escritório abra o app.
+4. Cadastre também `APP_USUARIO` e `APP_SENHA`: o app pede esse login antes de abrir qualquer tela ou consulta. Sem elas, o app fica fechado.
 
 ## Integra Contador
 
