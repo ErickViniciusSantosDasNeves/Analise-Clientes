@@ -68,8 +68,4 @@ table.composicao tr.subtotal td { font-weight: 600; }
 .divida-total strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .divida-total .nota { flex-basis: 100%; }
 h3.orgao { font-size: 15px; margin: 8px 0 6px; }
-details.simulacao > summary { cursor: pointer; padding: 4px 0; }
-details.simulacao[open] > summary { margin-bottom: 12px; }
-details.simulacao > section.card { box-shadow: none; border: 1px solid var(--line, #e3e3e3); }
 tr.subtotal td { font-weight: 600; border-top: 1px solid currentColor; }
-@media print { details.simulacao:not([open]) { display: none; } }
