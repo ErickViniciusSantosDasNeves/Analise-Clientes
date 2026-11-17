@@ -4,6 +4,7 @@ const nextConfig = {
   serverExternalPackages: ["pdfjs-dist"],
   outputFileTracingIncludes: {
     "/api/relatorio": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+    "/api/situacao-fiscal": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
   },
 };
 export default nextConfig;
