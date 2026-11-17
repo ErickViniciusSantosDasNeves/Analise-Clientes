@@ -29,6 +29,24 @@ export interface TabelaIrpf {
   reducao?: { isencaoAte: number; reducaoMaxima: number; faixaFinal: number; constante: number; fator: number };
 }
 
+export interface EtapaReforma {
+  /** Alíquota de CBS (federal) em fração. */
+  cbs: number;
+  /** Alíquota de IBS (estados e municípios) em fração. */
+  ibs: number;
+  /** Quanto do ICMS e do ISS ainda é cobrado (1 = integral, 0 = extinto). */
+  icmsIssRestante: number;
+  pisCofinsExiste: boolean;
+  /** Ano de teste em que o valor é compensável e o Simples não recolhe. */
+  apenasTeste?: boolean;
+}
+
+/**
+ * Alíquotas de referência estimadas pelo governo para o regime pleno (CONFERIR):
+ * serão fixadas por resolução do Senado. Usadas só para projeção.
+ */
+export const REFERENCIA_REFORMA = { cbs: 0.088, ibs: 0.177 };
+
 export const HISTORICO = {
   salarioMinimo: [
     { vigenteDesde: "2025-01-01", fonte: "Decreto 12.342/2024", valor: 1518.0 },
@@ -82,6 +100,17 @@ export const HISTORICO = {
       },
     },
   ] as Versao<Record<"I" | "II" | "III" | "V", FaixaSimples[]>>[],
+
+  /** Transição da Reforma Tributária (EC 132/2023 e LC 214/2025). */
+  reforma: [
+    { vigenteDesde: "2026-01-01", fonte: "LC 214/2025: ano de teste (CBS 0,9% e IBS 0,1%, compensáveis)", valor: { cbs: 0.009, ibs: 0.001, icmsIssRestante: 1, pisCofinsExiste: true, apenasTeste: true } },
+    { vigenteDesde: "2027-01-01", fonte: "LC 214/2025: CBS plena (−0,1 p.p.), IBS 0,1%, fim do PIS/Cofins", valor: { cbs: REFERENCIA_REFORMA.cbs - 0.001, ibs: 0.001, icmsIssRestante: 1, pisCofinsExiste: false } },
+    { vigenteDesde: "2029-01-01", fonte: "LC 214/2025: ICMS e ISS reduzidos a 90%, IBS a 10%", valor: { cbs: REFERENCIA_REFORMA.cbs, ibs: REFERENCIA_REFORMA.ibs * 0.1, icmsIssRestante: 0.9, pisCofinsExiste: false } },
+    { vigenteDesde: "2030-01-01", fonte: "LC 214/2025: ICMS e ISS a 80%, IBS a 20%", valor: { cbs: REFERENCIA_REFORMA.cbs, ibs: REFERENCIA_REFORMA.ibs * 0.2, icmsIssRestante: 0.8, pisCofinsExiste: false } },
+    { vigenteDesde: "2031-01-01", fonte: "LC 214/2025: ICMS e ISS a 70%, IBS a 30%", valor: { cbs: REFERENCIA_REFORMA.cbs, ibs: REFERENCIA_REFORMA.ibs * 0.3, icmsIssRestante: 0.7, pisCofinsExiste: false } },
+    { vigenteDesde: "2032-01-01", fonte: "LC 214/2025: ICMS e ISS a 60%, IBS a 40%", valor: { cbs: REFERENCIA_REFORMA.cbs, ibs: REFERENCIA_REFORMA.ibs * 0.4, icmsIssRestante: 0.6, pisCofinsExiste: false } },
+    { vigenteDesde: "2033-01-01", fonte: "LC 214/2025: IBS pleno, fim do ICMS e do ISS", valor: { cbs: REFERENCIA_REFORMA.cbs, ibs: REFERENCIA_REFORMA.ibs, icmsIssRestante: 0, pisCofinsExiste: false } },
+  ] as Versao<EtapaReforma>[],
 
   irpf: [
     {
@@ -144,6 +173,8 @@ export interface Parametros {
   limiteMei: number;
   anexosSimples: Record<"I" | "II" | "III" | "V", FaixaSimples[]>;
   irpf: TabelaIrpf;
+  /** Etapa da Reforma Tributária (antes de 2026: sem IBS/CBS). */
+  reforma?: EtapaReforma;
   /** Norma e vigência usadas, para mostrar no relatório. */
   fontes: { item: string; fonte: string; vigenteDesde: string }[];
 }
@@ -159,6 +190,7 @@ export function parametrosEm(data: string = hojeIso()): Parametros {
   const lim = vigente(HISTORICO.limiteMei, data);
   const sn = vigente(HISTORICO.anexosSimples, data);
   const ir = vigente(HISTORICO.irpf, data);
+  const rf = data >= HISTORICO.reforma[0].vigenteDesde ? vigente(HISTORICO.reforma, data) : undefined;
   return {
     data,
     salarioMinimo: sm.valor,
@@ -166,12 +198,14 @@ export function parametrosEm(data: string = hojeIso()): Parametros {
     limiteMei: lim.valor,
     anexosSimples: sn.valor,
     irpf: ir.valor,
+    reforma: rf?.valor,
     fontes: [
       { item: "Salário mínimo", fonte: sm.fonte, vigenteDesde: sm.vigenteDesde },
       { item: "Teto do INSS", fonte: teto.fonte, vigenteDesde: teto.vigenteDesde },
       { item: "Limite do MEI", fonte: lim.fonte, vigenteDesde: lim.vigenteDesde },
       { item: "Tabelas do Simples", fonte: sn.fonte, vigenteDesde: sn.vigenteDesde },
       { item: "Tabela do IRPF", fonte: ir.fonte, vigenteDesde: ir.vigenteDesde },
+      ...(rf ? [{ item: "Reforma Tributária (IBS e CBS)", fonte: rf.fonte, vigenteDesde: rf.vigenteDesde }] : []),
     ],
   };
 }

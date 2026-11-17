@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import type { Cadastro } from "@/lib/fontes/brasilapi";
 import { analisarMei } from "@/lib/motor/mei";
+import { analisarReforma } from "@/lib/motor/reforma";
 import { MEI_REGRAS as MEI } from "@/lib/motor/parametros";
 import type { RelatorioSituacaoFiscal } from "@/lib/relatorio/situacao-fiscal";
 import type { Atividade, Cenario, Debito, EntradaMei, TipoDebito } from "@/lib/motor/tipos";
@@ -41,6 +42,7 @@ export default function Pagina() {
   const [honMei, setHonMei] = useState("150");
   const [honMe, setHonMe] = useState("450");
   const [honBaixa, setHonBaixa] = useState("300");
+  const [vendasEmpresas, setVendasEmpresas] = useState("0");
   const honAbertura = "800";
 
   const [debitos, setDebitos] = useState<Debito[]>([]);
@@ -123,6 +125,7 @@ export default function Pagina() {
     proLaboreMensal: num(proLabore),
     honorarios: { meiMensal: num(honMei), meMensal: num(honMe), baixa: num(honBaixa), abertura: num(honAbertura) },
   };
+  const reforma = useMemo(() => analisarReforma(new Date().toISOString().slice(0, 10), Math.min(100, num(vendasEmpresas)) / 100), [vendasEmpresas]);
   const resultado = useMemo(() => analisarMei(entrada), [JSON.stringify(entrada)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -177,6 +180,7 @@ export default function Pagina() {
           <label>Pró-labore se virar ME (R$/mês)<input value={proLabore} onChange={(e) => setProLabore(e.target.value)} inputMode="decimal" /></label>
           <label>Honorário MEI (R$/mês)<input value={honMei} onChange={(e) => setHonMei(e.target.value)} inputMode="decimal" /></label>
           <label>Honorário ME (R$/mês)<input value={honMe} onChange={(e) => setHonMe(e.target.value)} inputMode="decimal" /></label>
+          <label>Vendas para outras empresas (% do faturamento)<input value={vendasEmpresas} onChange={(e) => setVendasEmpresas(e.target.value)} inputMode="decimal" /></label>
           <label>Honorário de baixa (R$)<input value={honBaixa} onChange={(e) => setHonBaixa(e.target.value)} inputMode="decimal" /></label>
           <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={permitida} onChange={(e) => setPermitida(e.target.checked)} /> Atividades permitidas ao MEI
@@ -269,6 +273,39 @@ export default function Pagina() {
         </details>
         <div className="linha nao-imprimir"><button onClick={() => window.print()}>Imprimir ou salvar PDF</button></div>
         <p className="so-impressao nota">Relatório gerado em {new Date().toLocaleDateString("pt-BR")} · NEVES CONT</p>
+      </section>
+      <section className="card">
+        <h2>5. Reforma Tributária: IBS e CBS</h2>
+        <p className="nota">
+          Transição da EC 132/2023 e da LC 214/2025. Alíquotas cheias são estimativas do governo ({(reforma.aliquotaPlenaEstimada * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% somando CBS e IBS) até a fixação pelo Senado.
+        </p>
+        <div className="tabela-rolagem">
+          <table>
+            <thead>
+              <tr><th>Ano</th><th className="num">CBS</th><th className="num">IBS</th><th>PIS/Cofins</th><th className="num">ICMS e ISS</th><th>O que acontece</th></tr>
+            </thead>
+            <tbody>
+              {reforma.cronograma.map((a) => (
+                <tr key={a.ano}>
+                  <td>{a.ano}</td>
+                  <td className="num">{(a.cbs * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</td>
+                  <td className="num">{(a.ibs * 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%</td>
+                  <td>{a.pisCofinsExiste ? "Continua" : "Extinto"}</td>
+                  <td className="num">{a.icmsIssRestante === 0 ? "Extintos" : `${Math.round(a.icmsIssRestante * 100)}%`}</td>
+                  <td className="nota">{a.apenasTeste ? "Ano de teste: valores compensáveis; Simples e MEI não recolhem." : a.fonte.replace(/^LC 214\/2025: /, "")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="cenarios" style={{ marginTop: 12 }}>
+          {resultado.cenarios.map((c) => (
+            <div key={c.codigo} className="cenario">
+              <h3>{c.codigo}. {c.titulo}</h3>
+              <ul>{reforma.porCaminho[c.codigo].map((t) => <li key={t}>{t}</li>)}</ul>
+            </div>
+          ))}
+        </div>
       </section>
     </main>
   );
