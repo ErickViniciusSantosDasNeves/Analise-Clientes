@@ -7,7 +7,8 @@ import { analisarMei } from "@/lib/motor/mei";
 import { analisarReforma } from "@/lib/motor/reforma";
 import { MEI_REGRAS as MEI } from "@/lib/motor/parametros";
 import type { RelatorioSituacaoFiscal } from "@/lib/relatorio/situacao-fiscal";
-import type { Atividade, Cenario, Debito, EntradaMei, TipoDebito } from "@/lib/motor/tipos";
+import type { Atividade, Cenario, Debito, EntradaMei, Orgao, TipoDebito } from "@/lib/motor/tipos";
+import { ORGAOS, agruparPorOrgao } from "@/lib/motor/debitos";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const num = (s: string) => Number(s.replace(/\./g, "").replace(",", ".")) || 0;
@@ -46,7 +47,9 @@ export default function Pagina() {
   const honAbertura = "800";
 
   const [debitos, setDebitos] = useState<Debito[]>([]);
-  const [novo, setNovo] = useState<{ tipo: TipoDebito; competencia: string; valor: string }>({ tipo: "DAS", competencia: "", valor: "" });
+  const vazio = { orgao: "PREFEITURA" as Orgao, tipo: "OUTRO" as TipoDebito, descricao: "", competencia: "", vencimento: "", original: "", multa: "", juros: "" };
+  const [novo, setNovo] = useState(vazio);
+  const [msgMunicipal, setMsgMunicipal] = useState("");
   const [msgIntegra, setMsgIntegra] = useState("");
   const [integraAtivo, setIntegraAtivo] = useState(false);
   const [pdfReceita, setPdfReceita] = useState<string | null>(null);
@@ -96,7 +99,10 @@ export default function Pagina() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.erro);
       setCadastro(j);
-      if (integraAtivo) buscarSituacaoFiscal(limparCnpj(cnpj));
+      if (integraAtivo) {
+        buscarSituacaoFiscal(limparCnpj(cnpj));
+        if (j.optanteMei) buscarDividaMunicipalMei(limparCnpj(cnpj));
+      }
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -114,7 +120,7 @@ export default function Pagina() {
       const rel: RelatorioSituacaoFiscal = j.relatorio;
       setRelatorio(rel);
       const encontrados: Debito[] = j.debitos.map((d: Debito) => ({ ...d, origem: "integra" }));
-      setDebitos((d) => [...d.filter((x) => x.origem !== "integra" && x.origem !== "upload"), ...encontrados]);
+      setDebitos((d) => [...d.filter((x) => (x.origem !== "integra" && x.origem !== "upload") || x.orgao === "PREFEITURA" || x.orgao === "ESTADO"), ...encontrados]);
       setPdfReceita(j.pdfBase64);
       setMsgIntegra(`${encontrados.length} pendência(s) trazidas da Receita (relatório emitido em ${rel.emitidoEm ?? "agora"}).`);
     } catch (e) {
@@ -122,11 +128,41 @@ export default function Pagina() {
     }
   }
 
+  /** ISS e ICMS do DAS-MEI inscritos em dívida ativa da prefeitura ou do estado (PGMEI). Os da União já vêm no relatório. */
+  async function buscarDividaMunicipalMei(cnpjAlvo: string) {
+    setMsgMunicipal("Buscando ISS/ICMS do MEI em dívida ativa da prefeitura e do estado...");
+    try {
+      const r = await fetch("/api/debitos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cnpj: cnpjAlvo }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.erro);
+      const locais: Debito[] = (j.debitos as Debito[]).filter((d) => d.orgao === "PREFEITURA" || d.orgao === "ESTADO");
+      setDebitos((d) => [...d.filter((x) => !(x.origem === "integra" && (x.orgao === "PREFEITURA" || x.orgao === "ESTADO"))), ...locais]);
+      setMsgMunicipal(locais.length ? `${locais.length} débito(s) do DAS-MEI em dívida ativa da prefeitura ou do estado.` : "Nenhum ISS/ICMS do MEI em dívida ativa da prefeitura ou do estado.");
+    } catch (e) {
+      setMsgMunicipal(`Prefeitura/estado (PGMEI): ${(e as Error).message}`);
+    }
+  }
+
   function adicionarDebito() {
-    const valor = num(novo.valor);
+    const original = num(novo.original), multa = num(novo.multa), juros = num(novo.juros);
+    const valor = Math.round((original + multa + juros) * 100) / 100;
     if (novo.tipo !== "DASN_OMISSA" && valor <= 0) return;
-    setDebitos((d) => [...d, { tipo: novo.tipo, descricao: TIPOS[novo.tipo], competencia: novo.competencia || undefined, valor, origem: "manual" }]);
-    setNovo({ ...novo, competencia: "", valor: "" });
+    setDebitos((d) => [
+      ...d,
+      {
+        tipo: novo.tipo,
+        orgao: novo.orgao,
+        descricao: novo.descricao.trim() || TIPOS[novo.tipo],
+        competencia: novo.competencia || undefined,
+        vencimento: novo.vencimento || undefined,
+        valorOriginal: original,
+        multa,
+        juros,
+        valor,
+        origem: "manual",
+      },
+    ]);
+    setNovo({ ...vazio, orgao: novo.orgao, tipo: novo.tipo });
   }
 
   const entrada: EntradaMei = {
@@ -139,13 +175,14 @@ export default function Pagina() {
     proLaboreMensal: num(proLabore),
     honorarios: { meiMensal: num(honMei), meMensal: num(honMe), baixa: num(honBaixa), abertura: num(honAbertura) },
   };
+  const grupos = useMemo(() => agruparPorOrgao(debitos), [debitos]);
   const reforma = useMemo(() => analisarReforma(new Date().toISOString().slice(0, 10), Math.min(100, num(vendasEmpresas)) / 100), [vendasEmpresas]);
   const resultado = useMemo(() => analisarMei(entrada), [JSON.stringify(entrada)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <main>
       <header className="topo">
-        <h1>Análise de cliente · MEI</h1>
+        <h1>Análise de cliente · débitos e situação fiscal</h1>
         <span className="marca">NEVES CONT</span>
       </header>
 
@@ -178,8 +215,126 @@ export default function Pagina() {
         </section>
       )}
 
+      <section className="card">
+        <h2>2. Débitos em aberto</h2>
+        <div className="linha nao-imprimir" style={{ marginBottom: 12 }}>
+          <button className="sec" onClick={() => buscarSituacaoFiscal()} disabled={!cnpjValido(cnpj) || !integraAtivo} title={integraAtivo ? "" : "Integra Contador não configurado no servidor"}>
+            Buscar no e-CAC e PGFN
+          </button>
+          <label className="sec-arquivo">
+            <span className="botao-sec">Ler relatório de situação fiscal (PDF)</span>
+            <input type="file" accept="application/pdf" onChange={(e) => { lerRelatorio(e.target.files?.[0]); e.target.value = ""; }} hidden />
+          </label>
+        </div>
+        {!integraAtivo && <p className="nota nao-imprimir">Busca automática na Receita desligada: cadastre as credenciais do Integra Contador no servidor. Enquanto isso, use o PDF.</p>}
+        {msgIntegra && <p className="nota nao-imprimir">{msgIntegra}</p>}
+        {msgMunicipal && <p className="nota nao-imprimir">{msgMunicipal}</p>}
+        {pdfReceita && (
+          <p className="nota nao-imprimir">
+            <a href={`data:application/pdf;base64,${pdfReceita}`} download={`situacao-fiscal-${limparCnpj(cnpj)}.pdf`}>Baixar o relatório da Receita (PDF)</a>
+          </p>
+        )}
+        {msgRelatorio && <p className="nota nao-imprimir">{msgRelatorio}</p>}
+        {relatorio && (
+          <div className="grade" style={{ marginBottom: 12 }}>
+            <div><span>Relatório de situação fiscal</span>{relatorio.razaoSocial ?? "-"}</div>
+            <div><span>Emitido em</span>{relatorio.emitidoEm ?? "-"}</div>
+            <div><span>Situação no relatório</span>{relatorio.situacao ?? "-"}</div>
+            {relatorio.certidao && <div><span>Última certidão</span>{relatorio.certidao.tipo}, validade {relatorio.certidao.validade}</div>}
+            {relatorio.avisos.length > 0 && <div className="alerta" style={{ gridColumn: "1 / -1" }}>{relatorio.avisos.slice(0, 5).join(" ")}</div>}
+          </div>
+        )}
+
+        <div className="divida-total">
+          <div><span>Total em aberto</span><strong>{brl(resultado.totalDebitos)}</strong></div>
+          {grupos.map((g) => (
+            <div key={g.orgao}><span>{g.nome}</span><strong>{brl(g.total)}</strong></div>
+          ))}
+          <div className="nota">
+            {debitos.length === 0
+              ? "Nenhum débito encontrado ou lançado até agora."
+              : `${debitos.length} débito(s). Valores atualizados até a data do relatório, com multa e juros.`}
+          </div>
+        </div>
+
+        {grupos.map((g) => (
+          <div key={g.orgao} style={{ marginBottom: 16 }}>
+            <h3 className="orgao">{g.nome} <span className="nota">· {g.onde}</span></h3>
+            <div className="tabela-rolagem">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tributo / débito</th><th>Competência</th><th>Vencimento</th>
+                    <th className="num">Valor original</th><th className="num">Multa</th><th className="num">Juros</th><th className="num">Total</th>
+                    <th>Situação</th><th className="nao-imprimir" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.itens.map(({ debito: d, indice }) => (
+                    <tr key={indice}>
+                      <td>{d.descricao || TIPOS[d.tipo]}<div className="nota">{RESOLVE[d.tipo]}{d.origem === "manual" ? " · lançado à mão" : d.origem === "upload" ? " · PDF enviado" : ""}</div></td>
+                      <td>{d.competencia ?? "-"}</td>
+                      <td>{d.vencimento ?? "-"}</td>
+                      <td className="num">{d.valorOriginal !== undefined ? brl(d.valorOriginal) : "-"}</td>
+                      <td className="num">{d.multa !== undefined ? brl(d.multa) : "-"}</td>
+                      <td className="num">{d.juros !== undefined ? brl(d.juros) : "-"}</td>
+                      <td className="num"><strong>{d.tipo === "DASN_OMISSA" && d.valor <= 0 ? brl(MEI.multaMinimaDasn) : d.valor > 0 ? brl(d.valor) : <span className="nota">sem valor</span>}</strong></td>
+                      <td className="nota">{d.situacao ?? "-"}</td>
+                      <td className="nao-imprimir"><button className="mini" onClick={() => setDebitos(debitos.filter((_, j) => j !== indice))}>remover</button></td>
+                    </tr>
+                  ))}
+                  <tr className="subtotal">
+                    <td colSpan={3}>Subtotal {g.nome}</td>
+                    <td className="num">{brl(g.valorOriginal)}</td>
+                    <td className="num">{brl(g.multa)}</td>
+                    <td className="num">{brl(g.juros)}</td>
+                    <td className="num">{brl(g.total)}</td>
+                    <td colSpan={2} className="nota">{g.semDetalhe > 0 ? `${g.semDetalhe} item(ns) só com o total` : ""}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+
+        <details className="nao-imprimir">
+          <summary>Lançar débito à mão (prefeitura, estado ou outro)</summary>
+          <p className="nota">
+            Prefeituras não têm consulta nacional: cada município tem o seu portal. Confira a certidão ou o extrato de débitos da prefeitura do cliente e lance aqui.
+          </p>
+          <div className="grade">
+            <label>
+              Órgão
+              <select value={novo.orgao} onChange={(e) => setNovo({ ...novo, orgao: e.target.value as Orgao })}>
+                {ORGAOS.map((o) => <option key={o.codigo} value={o.codigo}>{o.nome}</option>)}
+              </select>
+            </label>
+            <label>
+              Tipo
+              <select value={novo.tipo} onChange={(e) => setNovo({ ...novo, tipo: e.target.value as TipoDebito })}>
+                {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </label>
+            <label>Descrição<input value={novo.descricao} onChange={(e) => setNovo({ ...novo, descricao: e.target.value })} placeholder="ISS 2024, IPTU, taxa de licença..." /></label>
+            <label>Competência<input value={novo.competencia} onChange={(e) => setNovo({ ...novo, competencia: e.target.value })} placeholder="03/2024" /></label>
+            <label>Vencimento<input value={novo.vencimento} onChange={(e) => setNovo({ ...novo, vencimento: e.target.value })} placeholder="20/04/2024" /></label>
+            <label>Valor original (R$)<input value={novo.original} onChange={(e) => setNovo({ ...novo, original: e.target.value })} inputMode="decimal" /></label>
+            <label>Multa (R$)<input value={novo.multa} onChange={(e) => setNovo({ ...novo, multa: e.target.value })} inputMode="decimal" /></label>
+            <label>Juros (R$)<input value={novo.juros} onChange={(e) => setNovo({ ...novo, juros: e.target.value })} inputMode="decimal" /></label>
+          </div>
+          <div className="linha" style={{ marginTop: 8 }}>
+            <button onClick={adicionarDebito}>Adicionar débito</button>
+            <span className="nota">Total = original + multa + juros{novo.tipo === "DASN_OMISSA" ? `. Declaração sem valor usa a multa mínima de ${brl(MEI.multaMinimaDasn)}` : ""}.</span>
+          </div>
+        </details>
+        <div className="linha nao-imprimir" style={{ marginTop: 12 }}><button onClick={() => window.print()}>Imprimir ou salvar PDF</button></div>
+        <p className="so-impressao nota">Relatório gerado em {new Date().toLocaleDateString("pt-BR")} · NEVES CONT</p>
+      </section>
+
+      <details className="card simulacao">
+        <summary><strong>Simulação de caminhos e Reforma Tributária (opcional)</strong></summary>
       <section className="card nao-imprimir">
-        <h2>2. Dados para a simulação</h2>
+        <h2>Dados para a simulação</h2>
         <div className="grade">
           <label>Faturamento previsto em 12 meses (R$)<input value={faturamento} onChange={(e) => setFaturamento(e.target.value)} inputMode="decimal" /></label>
           <label>
@@ -204,72 +359,7 @@ export default function Pagina() {
       </section>
 
       <section className="card">
-        <h2>3. Mapa de pendências · total {brl(resultado.totalDebitos)}</h2>
-        <div className="linha nao-imprimir" style={{ marginBottom: 12 }}>
-          <button className="sec" onClick={() => buscarSituacaoFiscal()} disabled={!cnpjValido(cnpj) || !integraAtivo} title={integraAtivo ? "" : "Integra Contador não configurado no servidor"}>
-            Buscar situação fiscal no e-CAC
-          </button>
-          <label className="sec-arquivo">
-            <span className="botao-sec">Ler relatório de situação fiscal (PDF)</span>
-            <input type="file" accept="application/pdf" onChange={(e) => { lerRelatorio(e.target.files?.[0]); e.target.value = ""; }} hidden />
-          </label>
-        </div>
-        {!integraAtivo && <p className="nota nao-imprimir">Busca automática na Receita desligada: cadastre as credenciais do Integra Contador no servidor. Enquanto isso, use o PDF.</p>}
-        {msgIntegra && <p className="nota nao-imprimir">{msgIntegra}</p>}
-        {pdfReceita && (
-          <p className="nota nao-imprimir">
-            <a href={`data:application/pdf;base64,${pdfReceita}`} download={`situacao-fiscal-${limparCnpj(cnpj)}.pdf`}>Baixar o relatório da Receita (PDF)</a>
-          </p>
-        )}
-        {msgRelatorio && <p className="nota nao-imprimir">{msgRelatorio}</p>}
-        {relatorio && (
-          <div className="grade" style={{ marginBottom: 12 }}>
-            <div><span>Relatório de situação fiscal</span>{relatorio.razaoSocial ?? "-"}</div>
-            <div><span>Situação no relatório</span>{relatorio.situacao ?? "-"}</div>
-            <div><span>Porte</span>{relatorio.porte ?? "-"}</div>
-            <div><span>Simples Nacional</span>{relatorio.periodosSimples.map((p) => `${p.inclusao} a ${p.exclusao ?? "atual"}`).join("; ") || "-"}</div>
-            {relatorio.certidao && <div><span>Última certidão</span>{relatorio.certidao.tipo}, validade {relatorio.certidao.validade}</div>}
-            {relatorio.avisos.length > 0 && <div className="alerta" style={{ gridColumn: "1 / -1" }}>{relatorio.avisos.slice(0, 5).join(" ")}</div>}
-          </div>
-        )}
-        <div className="tabela-rolagem">
-          <table>
-            <thead>
-              <tr><th>Pendência</th><th>Competência</th><th>Situação</th><th>Como resolve</th><th>Origem</th><th className="num">Valor atualizado</th><th className="nao-imprimir" /></tr>
-            </thead>
-            <tbody>
-              {debitos.length === 0 && (
-                <tr><td colSpan={7} className="nota">Nenhuma pendência lançada.</td></tr>
-              )}
-              {debitos.map((d, i) => (
-                <tr key={i}>
-                  <td>{TIPOS[d.tipo]}{d.origem !== "manual" && d.descricao ? <div className="nota">{d.descricao}</div> : null}</td>
-                  <td>{d.competencia ?? "-"}</td>
-                  <td className="nota">{d.situacao ?? "-"}</td>
-                  <td>{RESOLVE[d.tipo]}</td>
-                  <td>{d.origem === "integra" ? "Receita (automático)" : d.origem === "upload" ? "PDF enviado" : "Manual"}</td>
-                  <td className="num">{d.tipo === "DASN_OMISSA" && d.valor <= 0 ? brl(MEI.multaMinimaDasn) : d.valor > 0 ? brl(d.valor) : <span className="nota">sem valor no relatório</span>}</td>
-                  <td className="nao-imprimir"><button className="mini" onClick={() => setDebitos(debitos.filter((_, j) => j !== i))}>remover</button></td>
-                </tr>
-              ))}
-              <tr className="nao-imprimir">
-                <td>
-                  <select value={novo.tipo} onChange={(e) => setNovo({ ...novo, tipo: e.target.value as TipoDebito })}>
-                    {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </td>
-                <td><input value={novo.competencia} onChange={(e) => setNovo({ ...novo, competencia: e.target.value })} placeholder="2024-03" size={8} /></td>
-                <td colSpan={3} className="nota">{novo.tipo === "DASN_OMISSA" ? `Sem valor, usa multa mínima de ${brl(MEI.multaMinimaDasn)}` : ""}</td>
-                <td className="num"><input value={novo.valor} onChange={(e) => setNovo({ ...novo, valor: e.target.value })} placeholder="0,00" size={9} inputMode="decimal" /></td>
-                <td><button onClick={adicionarDebito}>Adicionar</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="card">
-        <h2>4. Caminhos possíveis</h2>
+        <h2>Caminhos possíveis</h2>
         <div className="divida-total">
           <div><span>Dívida total do cliente</span><strong>{brl(resultado.totalDebitos)}</strong></div>
           {resultado.totalDebitos > 0 && (() => {
@@ -293,11 +383,9 @@ export default function Pagina() {
             ))}
           </ul>
         </details>
-        <div className="linha nao-imprimir"><button onClick={() => window.print()}>Imprimir ou salvar PDF</button></div>
-        <p className="so-impressao nota">Relatório gerado em {new Date().toLocaleDateString("pt-BR")} · NEVES CONT</p>
       </section>
       <section className="card">
-        <h2>5. Reforma Tributária: IBS e CBS</h2>
+        <h2>Reforma Tributária: IBS e CBS</h2>
         <p className="nota">
           Transição da EC 132/2023 e da LC 214/2025. Alíquotas cheias são estimativas do governo ({(reforma.aliquotaPlenaEstimada * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% somando CBS e IBS) até a fixação pelo Senado.
         </p>
@@ -329,6 +417,7 @@ export default function Pagina() {
           ))}
         </div>
       </section>
+      </details>
     </main>
   );
 }

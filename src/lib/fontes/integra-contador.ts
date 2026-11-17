@@ -1,6 +1,6 @@
 import https from "node:https";
 import forge from "node-forge";
-import type { Debito } from "../motor/tipos";
+import type { Debito, Orgao } from "../motor/tipos";
 
 /**
  * Cliente do Integra Contador (Serpro).
@@ -228,8 +228,11 @@ export function mapearDividaAtivaPgmei(dados: unknown, ano: number): Debito[] {
     .filter((o): o is Record<string, unknown> => !!o && typeof o === "object" && typeof (o as Record<string, unknown>).valor === "number")
     .map((o) => {
       const pa = String(o.periodoApuracao ?? ano);
+      const ente = String(o.enteFederado ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+      const orgao: Orgao = ente.startsWith("MUNIC") ? "PREFEITURA" : ente.startsWith("ESTAD") ? "ESTADO" : "PGFN";
       return {
         tipo: "DIVIDA_ATIVA" as const,
+        orgao,
         descricao: `DAS MEI ${o.tributo ?? ""} em dívida ativa`.replace(/\s+/g, " ").trim(),
         competencia: /^\d{6}$/.test(pa) ? `${pa.slice(4)}/${pa.slice(0, 4)}` : pa,
         valor: Number(o.valor),

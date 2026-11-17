@@ -7,8 +7,13 @@ export type TipoDebito =
   | "PARCELAMENTO" // saldo de parcelamento ativo
   | "OUTRO";
 
+/** Onde o débito está: Receita (e-CAC), PGFN (Regularize), Prefeitura ou Estado. */
+export type Orgao = "RECEITA" | "PGFN" | "PREFEITURA" | "ESTADO";
+
 export interface Debito {
   tipo: TipoDebito;
+  /** Sem valor, deduz pelo tipo (dívida ativa = PGFN, demais = Receita). */
+  orgao?: Orgao;
   descricao: string;
   /** Ex.: "2024-03" ou "2023" */
   competencia?: string;
@@ -16,6 +21,10 @@ export interface Debito {
   valor: number;
   /** Situação informada pela fonte (ex.: "EM NEGOCIACAO DE PARCELAMENTO"). */
   situacao?: string;
+  vencimento?: string;
+  valorOriginal?: number;
+  multa?: number;
+  juros?: number;
   origem: "integra" | "upload" | "manual";
 }
 

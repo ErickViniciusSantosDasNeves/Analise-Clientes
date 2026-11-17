@@ -229,8 +229,13 @@ function tipoDebito(p: PendenciaRelatorio): TipoDebito {
 export function debitosDoRelatorio(r: RelatorioSituacaoFiscal): Debito[] {
   return r.pendencias.map((p) => ({
     tipo: tipoDebito(p),
+    orgao: p.secao === "SIDA" ? ("PGFN" as const) : ("RECEITA" as const),
     descricao: [p.receita, p.identificador].filter(Boolean).join(" · "),
     competencia: p.periodo,
+    vencimento: p.vencimento,
+    valorOriginal: p.saldoDevedor ?? p.valorOriginal,
+    multa: p.multa,
+    juros: p.juros,
     valor: p.consolidado ?? 0,
     situacao: [p.situacao, p.exigibilidadeSuspensa ? "exigibilidade suspensa" : undefined, p.detalhe].filter(Boolean).join(" · ") || undefined,
     origem: "upload" as const,

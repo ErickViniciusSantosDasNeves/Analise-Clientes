@@ -7,8 +7,12 @@ describe("fontes", () => {
   it("mapeia a dívida ativa do PGMEI", () => {
     const d = mapearDividaAtivaPgmei([{ periodoApuracao: "202203", tributo: "INSS", valor: 60.6, enteFederado: "Uniao", situacaoDebito: "ENVIADO A  PFN" }], 2022);
     expect(d).toEqual([
-      { tipo: "DIVIDA_ATIVA", descricao: "DAS MEI INSS em dívida ativa", competencia: "03/2022", valor: 60.6, situacao: "ENVIADO A PFN", origem: "integra" },
+      { tipo: "DIVIDA_ATIVA", orgao: "PGFN", descricao: "DAS MEI INSS em dívida ativa", competencia: "03/2022", valor: 60.6, situacao: "ENVIADO A PFN", origem: "integra" },
     ]);
+    const iss = mapearDividaAtivaPgmei([{ periodoApuracao: "202305", tributo: "ISS", valor: 5, enteFederado: "Município" }], 2023);
+    expect(iss[0].orgao).toBe("PREFEITURA");
+    const icms = mapearDividaAtivaPgmei([{ periodoApuracao: "202305", tributo: "ICMS", valor: 1, enteFederado: "ESTADO" }], 2023);
+    expect(icms[0].orgao).toBe("ESTADO");
   });
   it("lê o ETag do SITFIS e o corpo com dados em texto", () => {
     expect(lerEtag('"tempoEspera:4000"', "tempoEspera")).toBe("4000");

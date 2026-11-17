@@ -16,7 +16,7 @@ main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
 header.topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 header.topo h1 { font-size: 22px; margin: 0; }
 .marca { color: var(--accent); font-weight: 700; letter-spacing: .04em; }
-section.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
+section.card, details.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 16px; }
 section.card h2 { font-size: 16px; margin: 0 0 12px; }
 .linha { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--quiet); }
@@ -67,3 +67,9 @@ table.composicao tr.subtotal td { font-weight: 600; }
 .divida-total span { display: block; font-size: 12px; color: var(--quiet); }
 .divida-total strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .divida-total .nota { flex-basis: 100%; }
+h3.orgao { font-size: 15px; margin: 8px 0 6px; }
+details.simulacao > summary { cursor: pointer; padding: 4px 0; }
+details.simulacao[open] > summary { margin-bottom: 12px; }
+details.simulacao > section.card { box-shadow: none; border: 1px solid var(--line, #e3e3e3); }
+tr.subtotal td { font-weight: 600; border-top: 1px solid currentColor; }
+@media print { details.simulacao:not([open]) { display: none; } }

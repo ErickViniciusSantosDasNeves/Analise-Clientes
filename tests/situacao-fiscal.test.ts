@@ -40,6 +40,9 @@ describe("relatório de situação fiscal", () => {
     expect(d.map((x) => x.tipo)).toEqual(["OUTRO", "DAS", "DIVIDA_ATIVA", "PARCELAMENTO"]);
     expect(d.reduce((s, x) => s + x.valor, 0)).toBeCloseTo(1953.24);
     expect(d.every((x) => x.origem === "upload")).toBe(true);
+    expect(d.map((x) => x.orgao)).toEqual(["RECEITA", "RECEITA", "PGFN", "RECEITA"]);
+    const das = d[1];
+    expect(das.valorOriginal! + das.multa! + das.juros!).toBeCloseTo(das.valor);
   });
 
   it("avisa quando o consolidado não fecha", () => {
