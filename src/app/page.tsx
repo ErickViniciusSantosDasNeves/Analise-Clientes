@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import type { Cadastro } from "@/lib/fontes/brasilapi";
 import { analisarMei } from "@/lib/motor/mei";
@@ -48,6 +48,15 @@ export default function Pagina() {
   const [debitos, setDebitos] = useState<Debito[]>([]);
   const [novo, setNovo] = useState<{ tipo: TipoDebito; competencia: string; valor: string }>({ tipo: "DAS", competencia: "", valor: "" });
   const [msgIntegra, setMsgIntegra] = useState("");
+  const [integraAtivo, setIntegraAtivo] = useState(false);
+  const [pdfReceita, setPdfReceita] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/integra")
+      .then((r) => (r.ok ? r.json() : { configurado: false }))
+      .then((j) => setIntegraAtivo(Boolean(j.configurado)))
+      .catch(() => setIntegraAtivo(false));
+  }, []);
   const [relatorio, setRelatorio] = useState<RelatorioSituacaoFiscal | null>(null);
   const [msgRelatorio, setMsgRelatorio] = useState("");
 
@@ -87,6 +96,7 @@ export default function Pagina() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.erro);
       setCadastro(j);
+      if (integraAtivo) buscarSituacaoFiscal(limparCnpj(cnpj));
     } catch (e) {
       setErro((e as Error).message);
     } finally {
@@ -94,15 +104,19 @@ export default function Pagina() {
     }
   }
 
-  async function buscarIntegra() {
-    setMsgIntegra("Consultando o Integra Contador...");
+  async function buscarSituacaoFiscal(cnpjAlvo = cnpj) {
+    setMsgIntegra("Buscando o relatório de situação fiscal na Receita. Pode levar até 1 minuto...");
+    setPdfReceita(null);
     try {
-      const r = await fetch("/api/debitos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cnpj }) });
+      const r = await fetch("/api/situacao-fiscal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ cnpj: cnpjAlvo }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.erro);
-      const encontrados: Debito[] = j.debitos;
-      setDebitos((d) => [...d.filter((x) => x.origem !== "integra"), ...encontrados]);
-      setMsgIntegra(`${encontrados.length} débito(s) trazidos do Integra Contador. Confira com o relatório de situação fiscal.`);
+      const rel: RelatorioSituacaoFiscal = j.relatorio;
+      setRelatorio(rel);
+      const encontrados: Debito[] = j.debitos.map((d: Debito) => ({ ...d, origem: "integra" }));
+      setDebitos((d) => [...d.filter((x) => x.origem !== "integra" && x.origem !== "upload"), ...encontrados]);
+      setPdfReceita(j.pdfBase64);
+      setMsgIntegra(`${encontrados.length} pendência(s) trazidas da Receita (relatório emitido em ${rel.emitidoEm ?? "agora"}).`);
     } catch (e) {
       setMsgIntegra((e as Error).message);
     }
@@ -192,13 +206,21 @@ export default function Pagina() {
       <section className="card">
         <h2>3. Mapa de pendências · total {brl(resultado.totalDebitos)}</h2>
         <div className="linha nao-imprimir" style={{ marginBottom: 12 }}>
-          <button className="sec" onClick={buscarIntegra} disabled={!cnpjValido(cnpj)}>Buscar no Integra Contador</button>
+          <button className="sec" onClick={() => buscarSituacaoFiscal()} disabled={!cnpjValido(cnpj) || !integraAtivo} title={integraAtivo ? "" : "Integra Contador não configurado no servidor"}>
+            Buscar situação fiscal no e-CAC
+          </button>
           <label className="sec-arquivo">
             <span className="botao-sec">Ler relatório de situação fiscal (PDF)</span>
             <input type="file" accept="application/pdf" onChange={(e) => { lerRelatorio(e.target.files?.[0]); e.target.value = ""; }} hidden />
           </label>
         </div>
+        {!integraAtivo && <p className="nota nao-imprimir">Busca automática na Receita desligada: cadastre as credenciais do Integra Contador no servidor. Enquanto isso, use o PDF.</p>}
         {msgIntegra && <p className="nota nao-imprimir">{msgIntegra}</p>}
+        {pdfReceita && (
+          <p className="nota nao-imprimir">
+            <a href={`data:application/pdf;base64,${pdfReceita}`} download={`situacao-fiscal-${limparCnpj(cnpj)}.pdf`}>Baixar o relatório da Receita (PDF)</a>
+          </p>
+        )}
         {msgRelatorio && <p className="nota nao-imprimir">{msgRelatorio}</p>}
         {relatorio && (
           <div className="grade" style={{ marginBottom: 12 }}>
@@ -225,7 +247,7 @@ export default function Pagina() {
                   <td>{d.competencia ?? "-"}</td>
                   <td className="nota">{d.situacao ?? "-"}</td>
                   <td>{RESOLVE[d.tipo]}</td>
-                  <td>{d.origem === "integra" ? "Integra Contador" : d.origem === "upload" ? "Relatório" : "Manual"}</td>
+                  <td>{d.origem === "integra" ? "Receita (automático)" : d.origem === "upload" ? "PDF enviado" : "Manual"}</td>
                   <td className="num">{d.tipo === "DASN_OMISSA" && d.valor <= 0 ? brl(MEI.multaMinimaDasn) : d.valor > 0 ? brl(d.valor) : <span className="nota">sem valor no relatório</span>}</td>
                   <td className="nao-imprimir"><button className="mini" onClick={() => setDebitos(debitos.filter((_, j) => j !== i))}>remover</button></td>
                 </tr>

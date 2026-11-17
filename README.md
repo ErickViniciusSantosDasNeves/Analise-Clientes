@@ -36,16 +36,27 @@ npm test         # testes do motor de cálculo
 3. Em Settings > Environment Variables, cadastre as variáveis do Integra Contador abaixo.
 4. Cadastre também `APP_USUARIO` e `APP_SENHA`: o app pede esse login antes de abrir qualquer tela ou consulta. Sem elas, o app fica fechado.
 
-## Integra Contador
+## Integra Contador (busca automática no e-CAC)
 
-Configure como variáveis de ambiente do servidor (nunca no código nem no chat), conforme `.env.example`:
+Com o Integra Contador configurado, ao consultar um CNPJ o app busca sozinho o **Relatório de Situação Fiscal** na Receita (serviço SITFIS), lê as pendências e oferece o PDF para baixar. O upload do PDF continua como alternativa.
 
-- `INTEGRA_CONSUMER_KEY` e `INTEGRA_CONSUMER_SECRET`: da área do cliente Serpro.
-- `INTEGRA_CERT_PFX_BASE64` e `INTEGRA_CERT_SENHA`: certificado e-CNPJ A1 do escritório, em base64.
-- `INTEGRA_CNPJ_CONTRATANTE`: CNPJ do escritório.
+Cadastre na Vercel em **Settings > Environment Variables**, marcando **Production** e **Preview** e a opção **Sensitive**:
 
-Cada cliente consultado precisa ter dado procuração eletrônica ao escritório no e-CAC.
-Sem essas variáveis, o app funciona com lançamento manual dos débitos.
+| Variável | O que é |
+| --- | --- |
+| `INTEGRA_CONSUMER_KEY` | Consumer Key da área do cliente Serpro |
+| `INTEGRA_CONSUMER_SECRET` | Consumer Secret da área do cliente Serpro |
+| `INTEGRA_CERT_PFX_BASE64` | Certificado e-CNPJ A1 do escritório (.pfx) convertido em base64 |
+| `INTEGRA_CERT_SENHA` | Senha do certificado |
+| `INTEGRA_CNPJ_CONTRATANTE` | CNPJ do escritório (contratante do Integra Contador) |
+
+Para converter o .pfx em base64 no Windows (PowerShell), o resultado vai para a área de transferência:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\caminho\certificado.pfx")) | Set-Clipboard
+```
+
+Depois de salvar, faça **Redeploy** em Deployments. Cada cliente consultado precisa ter dado **procuração eletrônica** ao escritório no e-CAC. A emissão do relatório é tarifada pelo Serpro.
 
 ## Estrutura
 

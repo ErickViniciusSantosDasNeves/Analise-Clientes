@@ -1,12 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { mapearDividaAtivaPgmei } from "@/lib/fontes/integra-contador";
+import forge from "node-forge";
+import { interpretarCorpo, lerEtag, mapearDividaAtivaPgmei, pfxParaPem } from "@/lib/fontes/integra-contador";
 import { mapearBrasilApi } from "@/lib/fontes/brasilapi";
 
 describe("fontes", () => {
-  it("mapeia lista de dívida ativa com campo de valor", () => {
-    const d = mapearDividaAtivaPgmei({ dividas: [{ periodoApuracao: "202303", valorTotal: 120.5 }] }, 2023);
-    expect(d).toHaveLength(1);
-    expect(d[0]).toMatchObject({ tipo: "DIVIDA_ATIVA", competencia: "202303", valor: 120.5, origem: "integra" });
+  it("mapeia a dívida ativa do PGMEI", () => {
+    const d = mapearDividaAtivaPgmei([{ periodoApuracao: "202203", tributo: "INSS", valor: 60.6, enteFederado: "Uniao", situacaoDebito: "ENVIADO A  PFN" }], 2022);
+    expect(d).toEqual([
+      { tipo: "DIVIDA_ATIVA", descricao: "DAS MEI INSS em dívida ativa", competencia: "03/2022", valor: 60.6, situacao: "ENVIADO A PFN", origem: "integra" },
+    ]);
+  });
+  it("lê o ETag do SITFIS e o corpo com dados em texto", () => {
+    expect(lerEtag('"tempoEspera:4000"', "tempoEspera")).toBe("4000");
+    expect(lerEtag('"protocoloRelatorio:abc+/="', "protocoloRelatorio")).toBe("abc+/=");
+    expect(lerEtag(undefined, "tempoEspera")).toBeUndefined();
+    const c = interpretarCorpo(JSON.stringify({ mensagens: [{ codigo: "X", texto: "ok" }], dados: JSON.stringify([{ pdf: "JVBE" }]) }));
+    expect(c.dados).toEqual([{ pdf: "JVBE" }]);
+  });
+  it("abre certificado A1 (.pfx) com criptografia antiga", () => {
+    const chaves = forge.pki.rsa.generateKeyPair(1024);
+    const cert = forge.pki.createCertificate();
+    cert.publicKey = chaves.publicKey;
+    cert.serialNumber = "01";
+    cert.validity.notBefore = new Date();
+    cert.validity.notAfter = new Date(Date.now() + 86400000);
+    cert.setSubject([{ name: "commonName", value: "EMPRESA TESTE:11222333000181" }]);
+    cert.setIssuer(cert.subject.attributes);
+    cert.sign(chaves.privateKey);
+    const p12 = forge.pkcs12.toPkcs12Asn1(chaves.privateKey, [cert], "senha123", { algorithm: "3des" });
+    const b64 = forge.util.encode64(forge.asn1.toDer(p12).getBytes());
+    const pem = pfxParaPem(b64, "senha123");
+    expect(pem.chave).toContain("PRIVATE KEY");
+    expect(pem.certificado).toContain("BEGIN CERTIFICATE");
+    expect(() => pfxParaPem(b64, "errada")).toThrow();
   });
   it("mapeia o cadastro da BrasilAPI", () => {
     const c = mapearBrasilApi({
