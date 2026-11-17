@@ -1,0 +1,45 @@
+MINISTÉRIO DA FAZENDA  Por meio do Portal de Serviços da Receita Federal
+SECRETARIA ESPECIAL DA RECEITA FEDERAL DO BRASIL  CNPJ do certificado: 11.222.333/0001-81
+PROCURADORIA-GERAL DA FAZENDA NACIONAL  01/10/2026 10:00:00
+INFORMAÇÕES DE APOIO PARA EMISSÃO DE CERTIDÃO
+Página: 1 / 2
+CNPJ: 11.222.333 - EMPRESA FICTICIA DE TESTE LTDA
+Dados Cadastrais da Matriz ______________________________________________________________________________________
+CNPJ: 11.222.333/0001-81
+Situação: INAPTA
+Natureza Jurídica: 213-5 - EMPRESARIO (INDIVIDUAL)  Data de Abertura: 10/03/2020
+CNAE: 9602-5/01 - Cabeleireiros, manicure e pedicure
+Porte da Empresa: MICRO EMPRESA
+Opção pelo Simples Nacional
+Inclusão  Exclusão
+10/03/2020
+Sócios e Administradores ________________________________________________________________________________________
+_____________________________________ Diagnóstico Fiscal na Receita Federal _____________________________________
+Pendência - Débito (SIEF) _______________________________________________________________________________________
+CNPJ: 11.222.333/0001-81
+Receita  PA/Exerc.  Dt. Vcto  Vl. Original  Sdo. Devedor  Multa  Juros  Sdo. Dev. Cons.
+5440-01 - MAED - DCTFWEB  03/02/2025  24/03/2025  250,00  250,00  0,00  53,87  303,87
+Situação: EM NEGOCIACAO DE PARCELAMENTO
+Notificação de lançamento: 50000000000001
+MINISTÉRIO DA FAZENDA  Por meio do Portal de Serviços da Receita Federal
+SECRETARIA ESPECIAL DA RECEITA FEDERAL DO BRASIL  CNPJ do certificado: 11.222.333/0001-81
+PROCURADORIA-GERAL DA FAZENDA NACIONAL  01/10/2026 10:00:00
+INFORMAÇÕES DE APOIO PARA EMISSÃO DE CERTIDÃO
+Página: 2 / 2
+CNPJ: 11.222.333 - EMPRESA FICTICIA DE TESTE LTDA
+Receita  PA/Exerc.  Dt. Vcto  Vl. Original  Sdo. Devedor  Multa  Juros  Sdo. Dev. Cons.  Situação
+SIMPLES NAC.  01/2025  20/02/2025  1.165,23  1.165,23  233,04  251,10  1.649,37  DEVEDOR
+__________________________ Diagnóstico Fiscal na Procuradoria-Geral da Fazenda Nacional _________________________
+Inscrição com Exigibilidade Suspensa (SIDA) _____________________________________________________________________
+CNPJ: 11.222.333/0001-81
+Inscrição  Receita  Inscrito em  Ajuizado em  Processo  Tipo de Devedor
+80.4.26.000001-00  1507-SIMPLES  25/05/2026  10000.000000/2026-00  DEVEDOR PRINCIPAL
+NACIONAL
+Situação: ATIVA NAO AJUIZAVEL NEGOCIADA NO SISPAR
+Parcelamento com Exigibilidade Suspensa (SISPAR) ________________________________________________________________
+CNPJ: 11.222.333/0001-81
+Conta
+000000001  TRANSACAO POR ADESAO  EDITAL PGDAU 062026
+Modalidade: SIMPLES NACIONAL PF, ME E EPP ATE 60 PRESTACOES SEM REDUCAO
+_________________________________________________________________________________________________________________
+Final do Relatório
