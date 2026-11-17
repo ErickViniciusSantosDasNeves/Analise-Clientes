@@ -56,9 +56,27 @@ export function mapearBrasilApi(j: any): Cadastro {
   };
 }
 
+/** Fontes públicas com o mesmo formato de resposta; a segunda é usada se a primeira falhar. */
+const FONTES = [
+  { nome: "BrasilAPI (base pública da Receita Federal)", url: (c: string) => `https://brasilapi.com.br/api/cnpj/v1/${c}` },
+  { nome: "Minha Receita (base pública da Receita Federal)", url: (c: string) => `https://minhareceita.org/${c}` },
+];
+
 export async function consultarCadastro(cnpj: string): Promise<Cadastro> {
-  const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cnpj}`, { headers: { Accept: "application/json" }, cache: "no-store" });
-  if (r.status === 404) throw new Error("CNPJ não encontrado na base pública.");
-  if (!r.ok) throw new Error(`Consulta pública indisponível (HTTP ${r.status}). Tente de novo em instantes.`);
-  return mapearBrasilApi(await r.json());
+  let ultimoErro = "Consulta pública indisponível. Tente de novo em instantes.";
+  for (const fonte of FONTES) {
+    try {
+      const r = await fetch(fonte.url(cnpj), { headers: { Accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(10000) });
+      if (r.status === 404) throw new Error("CNPJ não encontrado na base pública.");
+      if (!r.ok) {
+        ultimoErro = `Consulta pública indisponível (HTTP ${r.status}). Tente de novo em instantes.`;
+        continue;
+      }
+      return { ...mapearBrasilApi(await r.json()), fonte: fonte.nome };
+    } catch (e) {
+      if ((e as Error).message.startsWith("CNPJ não encontrado")) throw e;
+      ultimoErro = `Consulta pública indisponível (${(e as Error).message}). Tente de novo em instantes.`;
+    }
+  }
+  throw new Error(ultimoErro);
 }

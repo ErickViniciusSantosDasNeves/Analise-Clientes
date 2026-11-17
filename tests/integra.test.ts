@@ -24,3 +24,13 @@ describe("fontes", () => {
     expect(c.optanteMei).toBe(true);
   });
 });
+
+describe("Minha Receita", () => {
+  it("usa o mesmo mapeamento da BrasilAPI", async () => {
+    const { readFileSync } = await import("node:fs");
+    const j = JSON.parse(readFileSync(new URL("./fixtures/minhareceita-mei-inapto.json", import.meta.url), "utf8"));
+    const c = mapearBrasilApi(j);
+    expect(c).toMatchObject({ situacao: "INAPTA", motivoSituacao: "OMISSAO DE DECLARACOES", optanteMei: true, abertura: "2021-05-24" });
+    expect(c.cnaePrincipal.codigo).toBe("3101200");
+  });
+});
