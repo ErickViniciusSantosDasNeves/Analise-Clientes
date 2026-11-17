@@ -30,7 +30,7 @@ describe("análise do MEI", () => {
     expect(r.recomendado).not.toBe("A");
   });
 
-  it("débitos entram em A e D, ficam no CPF em C", () => {
+  it("a dívida total aparece em todos os caminhos e fica fora do custo de 12 meses", () => {
     const r = analisarMei({
       ...base,
       faturamento12m: 120000,
@@ -40,11 +40,10 @@ describe("análise do MEI", () => {
       ],
     });
     expect(r.totalDebitos).toBe(3050);
-    expect(cen(r, "D").regularizacao).toBe(3050);
-    expect(cen(r, "C").regularizacao).toBe(0);
-    expect(cen(r, "C").debitoRemanescente).toBe(3050);
-    expect(cen(r, "C").alertas.join(" ")).toContain("CPF");
-    // Com R$ 3.050 de débito e R$ 1.100 de baixa + abertura, C sai mais barato no caixa de 12 meses.
+    expect(r.cenarios.map((c) => c.codigo)).toEqual(["A", "B", "C"]);
+    for (const c of r.cenarios) expect(c.regularizacao).toBe(3050);
+    expect(cen(r, "B").custo12m).toBe(300);
+    expect(cen(r, "C").desembolso12m).toBe(cen(r, "C").custo12m + 3050);
     expect(r.recomendado).toBe("C");
   });
 
@@ -68,6 +67,6 @@ describe("análise do MEI", () => {
 describe("fator R", () => {
   it("sugere o pró-labore que leva ao Anexo III", () => {
     const r = analisarMei({ ...base, faturamento12m: 120000 });
-    expect(r.cenarios.find((c) => c.codigo === "D")!.alertas.join(" ")).toContain("R$ 2.800/mês");
+    expect(r.cenarios.find((c) => c.codigo === "C")!.alertas.join(" ")).toContain("R$ 2.800/mês");
   });
 });

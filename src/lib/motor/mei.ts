@@ -86,8 +86,8 @@ export function analisarMei(e: EntradaMei): ResultadoAnalise {
     parcelaRegularizacao: parcelamento,
     custoMensal: mensalA,
     custoUnico: [],
+    custo12m: arred(soma(mensalA) * 12),
     desembolso12m: arred(debitos + soma(mensalA) * 12),
-    debitoRemanescente: 0,
     regime: "MEI",
     alertas: alertasA,
   };
@@ -103,65 +103,40 @@ export function analisarMei(e: EntradaMei): ResultadoAnalise {
     parcelaRegularizacao: parcelamento,
     custoMensal: [],
     custoUnico: unicoB,
+    custo12m: soma(unicoB),
     desembolso12m: arred(debitos + soma(unicoB)),
-    debitoRemanescente: 0,
-    alertas: ["Indicado quando o cliente vai parar a atividade."],
+    alertas: ["Indicado quando o cliente vai parar a atividade. Depois da baixa não há custo mensal."],
   };
 
   const me = custoMensalMe(e, p);
 
-  // C. Baixar com os débitos e abrir nova empresa no Simples
-  const unicoC: LinhaCusto[] = [
-    { item: "Honorário de baixa do MEI", valor: e.honorarios.baixa },
-    { item: "Honorário de abertura da nova empresa", valor: e.honorarios.abertura },
-  ];
+  // C. Transformar o MEI em ME no mesmo CNPJ (desenquadramento)
+  const alertasC = [...me.alertas];
+  if (debitos > 0) alertasC.push("Para ficar no Simples, os débitos precisam estar pagos ou parcelados.");
+  if (inapta) alertasC.push("CNPJ inapto: regularizar as declarações antes de pedir o desenquadramento.");
   const c: Cenario = {
     codigo: "C",
-    titulo: "Dar baixa com os débitos e abrir ME/SLU no Simples",
-    viavel: true,
-    continuaOperando: true,
-    regularizacao: 0,
-    custoMensal: me.linhas,
-    custoUnico: unicoC,
-    desembolso12m: arred(soma(unicoC) + soma(me.linhas) * 12),
-    debitoRemanescente: debitos,
-    regime: me.regime,
-    alertas: [
-      ...(debitos > 0
-        ? [`R$ ${debitos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} em débitos continuam no CPF do titular e seguem sendo cobrados.`]
-        : []),
-      ...me.alertas,
-    ],
-  };
-
-  // D. Desenquadrar para ME no mesmo CNPJ
-  const alertasD = [...me.alertas];
-  if (debitos > 0) alertasD.push("Para ficar no Simples, os débitos precisam estar pagos ou parcelados.");
-  if (inapta) alertasD.push("CNPJ inapto: regularizar as declarações antes de pedir o desenquadramento.");
-  const d: Cenario = {
-    codigo: "D",
-    titulo: "Sair do MEI e virar ME no mesmo CNPJ",
+    titulo: "Transformar o MEI em ME no mesmo CNPJ",
     viavel: true,
     continuaOperando: true,
     regularizacao: debitos,
     parcelaRegularizacao: parcelamento,
     custoMensal: me.linhas,
     custoUnico: [],
+    custo12m: arred(soma(me.linhas) * 12),
     desembolso12m: arred(debitos + soma(me.linhas) * 12),
-    debitoRemanescente: 0,
     regime: me.regime,
-    alertas: alertasD,
+    alertas: alertasC,
   };
 
-  const cenarios = [a, b, c, d];
+  const cenarios = [a, b, c];
   const candidatos = cenarios.filter((x) => x.viavel && x.continuaOperando);
-  const melhor = candidatos.sort((x, y) => x.desembolso12m - y.desembolso12m)[0];
-  let justificativa = "Nenhum cenário de continuidade é viável com os dados informados.";
+  const melhor = candidatos.sort((x, y) => x.custo12m - y.custo12m)[0];
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  let justificativa = "Nenhum caminho de continuidade é viável com os dados informados.";
   if (melhor) {
-    justificativa = `Menor desembolso em 12 meses entre os caminhos em que o cliente continua trabalhando: R$ ${melhor.desembolso12m.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`;
-    if (melhor.codigo === "C" && melhor.debitoRemanescente > 0) {
-      justificativa += " Atenção: o débito antigo não some, só deixa de ser exigido para abrir a nova empresa.";
-    }
+    justificativa = `Para continuar trabalhando, o caminho ${melhor.codigo} tem o menor custo de impostos e honorários em 12 meses: ${fmt(melhor.custo12m)}.`;
+    if (debitos > 0) justificativa += ` A dívida de ${fmt(debitos)} precisa ser regularizada em qualquer caminho.`;
   }
   return { parametros: p, totalDebitos: debitos, cenarios, recomendado: melhor?.codigo as CodigoCenario | undefined, justificativa };
 }

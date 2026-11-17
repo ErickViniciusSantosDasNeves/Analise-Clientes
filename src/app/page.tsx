@@ -41,7 +41,7 @@ export default function Pagina() {
   const [honMei, setHonMei] = useState("150");
   const [honMe, setHonMe] = useState("450");
   const [honBaixa, setHonBaixa] = useState("300");
-  const [honAbertura, setHonAbertura] = useState("800");
+  const honAbertura = "800";
 
   const [debitos, setDebitos] = useState<Debito[]>([]);
   const [novo, setNovo] = useState<{ tipo: TipoDebito; competencia: string; valor: string }>({ tipo: "DAS", competencia: "", valor: "" });
@@ -178,7 +178,6 @@ export default function Pagina() {
           <label>Honorário MEI (R$/mês)<input value={honMei} onChange={(e) => setHonMei(e.target.value)} inputMode="decimal" /></label>
           <label>Honorário ME (R$/mês)<input value={honMe} onChange={(e) => setHonMe(e.target.value)} inputMode="decimal" /></label>
           <label>Honorário de baixa (R$)<input value={honBaixa} onChange={(e) => setHonBaixa(e.target.value)} inputMode="decimal" /></label>
-          <label>Honorário de abertura (R$)<input value={honAbertura} onChange={(e) => setHonAbertura(e.target.value)} inputMode="decimal" /></label>
           <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={permitida} onChange={(e) => setPermitida(e.target.checked)} /> Atividades permitidas ao MEI
           </label>
@@ -245,12 +244,20 @@ export default function Pagina() {
 
       <section className="card">
         <h2>4. Caminhos possíveis</h2>
+        <div className="divida-total">
+          <div><span>Dívida total do cliente</span><strong>{brl(resultado.totalDebitos)}</strong></div>
+          {resultado.totalDebitos > 0 && (() => {
+            const parc = resultado.cenarios[0].parcelaRegularizacao;
+            return parc && parc.parcelas > 1 ? <div><span>Se parcelar (PARCMEI)</span><strong>{parc.parcelas}x de {brl(parc.valor)}</strong></div> : null;
+          })()}
+          <div className="nota">Soma de todas as pendências do mapa, atualizadas até a data do relatório, sem limite de prazo.</div>
+        </div>
         <p>{resultado.justificativa}</p>
         <div className="cenarios">
           {resultado.cenarios.map((c) => <CartaoCenario key={c.codigo} c={c} melhor={c.codigo === resultado.recomendado} />)}
         </div>
         <p className="nota">
-          Desembolso em 12 meses = regularização exigida no caminho + custos únicos + 12 meses de custo mensal. Estimativa de apoio à decisão; valores legais em revisão pelo contador.
+          Custo em 12 meses = impostos, encargos e honorários do próximo ano. A dívida aparece à parte, pelo valor total. Estimativa de apoio à decisão; valores legais em revisão pelo contador.
         </p>
         <details className="nota" style={{ marginBottom: 12 }}>
           <summary>Valores legais usados (vigentes em {resultado.parametros.data.split("-").reverse().join("/")})</summary>
@@ -268,10 +275,9 @@ export default function Pagina() {
 }
 
 const SIGNIFICADO: Record<Cenario["codigo"], string> = {
-  A: "Paga ou parcela as pendências, entrega as declarações e o cliente segue como MEI.",
-  B: "Paga as pendências e encerra o CNPJ. Para quem vai parar de trabalhar.",
-  C: "Encerra o MEI sem pagar agora (a dívida passa para o CPF) e abre uma ME nova no Simples.",
-  D: "Paga ou parcela as pendências e o mesmo CNPJ passa de MEI para ME no Simples.",
+  A: "Regulariza a dívida, entrega as declarações e o cliente segue como MEI.",
+  B: "Regulariza a dívida e encerra o CNPJ. Para quem vai parar de trabalhar.",
+  C: "Regulariza a dívida e o mesmo CNPJ deixa de ser MEI e passa a ME no Simples Nacional.",
 };
 
 function CartaoCenario({ c, melhor }: { c: Cenario; melhor: boolean }) {
@@ -279,22 +285,12 @@ function CartaoCenario({ c, melhor }: { c: Cenario; melhor: boolean }) {
   return (
     <div className={`cenario ${melhor ? "melhor" : ""} ${c.viavel ? "" : "inviavel"}`}>
       <h3>{c.codigo}. {c.titulo}</h3>
-      {melhor && <span className="tag">Menor desembolso</span>}
+      {melhor && <span className="tag">Menor custo para continuar</span>}
       {!c.viavel && <span className="tag ruim">Não viável</span>}
       <p className="nota" style={{ margin: "6px 0" }}>{SIGNIFICADO[c.codigo]}</p>
       <table className="composicao">
         <tbody>
-          {c.regularizacao > 0 && (
-            <tr>
-              <td>
-                Regularizar pendências
-                {c.parcelaRegularizacao && c.parcelaRegularizacao.parcelas > 1 && (
-                  <div className="nota">ou {c.parcelaRegularizacao.parcelas}x de {brl(c.parcelaRegularizacao.valor)}</div>
-                )}
-              </td>
-              <td className="num">{brl(c.regularizacao)}</td>
-            </tr>
-          )}
+          <tr className="grupo"><td colSpan={2}>Custo em 12 meses</td></tr>
           {c.custoUnico.map((l) => (
             <tr key={l.item}><td>{l.item}</td><td className="num">{brl(l.valor)}</td></tr>
           ))}
@@ -304,15 +300,26 @@ function CartaoCenario({ c, melhor }: { c: Cenario; melhor: boolean }) {
               <td className="num">{brl(l.valor * 12)}</td>
             </tr>
           ))}
-          <tr className="total-linha"><td>Total em 12 meses</td><td className="num">{brl(c.desembolso12m)}</td></tr>
+          <tr className="subtotal"><td>Subtotal 12 meses</td><td className="num">{brl(c.custo12m)}</td></tr>
+          {c.regularizacao > 0 && (
+            <tr>
+              <td>
+                Dívida total a regularizar
+                {c.parcelaRegularizacao && c.parcelaRegularizacao.parcelas > 1 && (
+                  <div className="nota">à vista, ou {c.parcelaRegularizacao.parcelas}x de {brl(c.parcelaRegularizacao.valor)}</div>
+                )}
+              </td>
+              <td className="num">{brl(c.regularizacao)}</td>
+            </tr>
+          )}
+          <tr className="total-linha"><td>Total (12 meses + dívida)</td><td className="num">{brl(c.desembolso12m)}</td></tr>
         </tbody>
       </table>
       <div className="nota">
-        {mensal > 0 ? `Depois de resolvido: ${brl(mensal)} por mês` : "Sem custo mensal depois da baixa"}
+        {mensal > 0 ? `Custo mensal: ${brl(mensal)}` : "Sem custo mensal depois da baixa"}
         {c.regime ? ` · ${c.regime}` : ""}
       </div>
-      {c.debitoRemanescente > 0 && <div className="alerta">Fora do total: {brl(c.debitoRemanescente)} de débito que continua no CPF do titular.</div>}
-      {c.alertas.filter((a) => !a.includes("continuam no CPF")).map((a) => <div key={a} className="alerta">{a}</div>)}
+      {c.alertas.map((a) => <div key={a} className="alerta">{a}</div>)}
     </div>
   );
 }

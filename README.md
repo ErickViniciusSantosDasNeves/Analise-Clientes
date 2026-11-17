@@ -7,8 +7,8 @@ Primeira etapa: **MEI**. Depois: Simples Nacional, Lucro Presumido e Lucro Real.
 
 1. Consulta o cadastro público do CNPJ (BrasilAPI): situação, atividades, opção pelo MEI e pelo Simples.
 2. Monta o mapa de pendências: lê o PDF do Relatório de Situação Fiscal do e-CAC (SIEF, Simples, dívida ativa, parcelamentos), traz débitos do Integra Contador ou aceita lançamento manual.
-3. Compara quatro caminhos: (A) regularizar e continuar MEI, (B) regularizar e dar baixa, (C) dar baixa com os débitos e abrir ME/SLU no Simples, (D) desenquadrar para ME no mesmo CNPJ.
-4. Calcula o desembolso em 12 meses de cada um (regularização, DAS, Simples com fator R, INSS e IRRF do pró-labore, honorários) e marca o menor.
+3. Mostra a dívida total do cliente e compara três caminhos: (A) regularizar e continuar MEI, (B) regularizar e dar baixa, (C) transformar o MEI em ME no mesmo CNPJ.
+4. Calcula o custo de 12 meses de cada caminho (DAS, Simples com fator R, INSS e IRRF do pró-labore, honorários), com a dívida total à parte, e marca o menor.
 5. Imprime ou salva em PDF para o cliente.
 
 ## Valores legais por vigência

@@ -43,7 +43,7 @@ export interface EntradaMei {
   };
 }
 
-export type CodigoCenario = "A" | "B" | "C" | "D";
+export type CodigoCenario = "A" | "B" | "C";
 
 export interface LinhaCusto {
   item: string;
@@ -64,10 +64,10 @@ export interface Cenario {
   custoMensal: LinhaCusto[];
   /** Custos que acontecem uma vez (abertura, baixa). */
   custoUnico: LinhaCusto[];
-  /** Quanto sai do bolso do cliente em 12 meses, incluindo a regularização quando ela é exigida. */
+  /** Impostos, encargos e honorários em 12 meses (sem a dívida). */
+  custo12m: number;
+  /** Dívida total + custo de 12 meses. */
   desembolso12m: number;
-  /** Débito que continua existindo (no CPF) e não entra no desembolso. */
-  debitoRemanescente: number;
   regime?: string;
   alertas: string[];
 }

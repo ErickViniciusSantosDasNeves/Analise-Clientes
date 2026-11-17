@@ -61,3 +61,9 @@ table.composicao { margin: 8px 0; font-size: 13px; }
 table.composicao td { padding: 5px 4px; }
 table.composicao td .nota { font-size: 12px; }
 table.composicao tr.total-linha td { font-weight: 700; font-size: 15px; border-bottom: none; border-top: 2px solid var(--ink); }
+table.composicao tr.grupo td { font-size: 12px; color: var(--quiet); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding-top: 2px; }
+table.composicao tr.subtotal td { font-weight: 600; }
+.divida-total { display: flex; flex-wrap: wrap; gap: 8px 32px; align-items: baseline; background: var(--warn-soft); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
+.divida-total span { display: block; font-size: 12px; color: var(--quiet); }
+.divida-total strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.divida-total .nota { flex-basis: 100%; }
