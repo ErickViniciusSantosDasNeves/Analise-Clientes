@@ -6,12 +6,20 @@ Primeira etapa: **MEI**. Depois: Simples Nacional, Lucro Presumido e Lucro Real.
 ## O que a etapa do MEI faz
 
 1. Consulta o cadastro público do CNPJ (BrasilAPI): situação, atividades, opção pelo MEI e pelo Simples.
-2. Monta o mapa de pendências: débitos trazidos do Integra Contador ou lançados a partir do relatório de situação fiscal.
+2. Monta o mapa de pendências: lê o PDF do Relatório de Situação Fiscal do e-CAC (SIEF, Simples, dívida ativa, parcelamentos), traz débitos do Integra Contador ou aceita lançamento manual.
 3. Compara quatro caminhos: (A) regularizar e continuar MEI, (B) regularizar e dar baixa, (C) dar baixa com os débitos e abrir ME/SLU no Simples, (D) desenquadrar para ME no mesmo CNPJ.
 4. Calcula o desembolso em 12 meses de cada um (regularização, DAS, Simples com fator R, INSS e IRRF do pró-labore, honorários) e marca o menor.
 5. Imprime ou salva em PDF para o cliente.
 
-Os valores legais ficam em `src/lib/motor/parametros.ts`. Os marcados com **CONFERIR** precisam de validação do contador.
+## Valores legais por vigência
+
+Os valores legais ficam em `src/lib/motor/parametros.ts`, cada um com o histórico de versões: data em que passa a valer e a norma.
+O app usa automaticamente a versão vigente na data da análise. Quando sai uma lei nova, basta acrescentar uma linha com a data de vigência; os valores antigos continuam valendo para análises de períodos anteriores.
+Os marcados com **CONFERIR** precisam de validação do contador.
+
+## Privacidade
+
+O PDF do relatório é lido na memória do servidor e descartado; nada é gravado. Não coloque relatórios reais de clientes no repositório: os testes usam um relatório fictício em `tests/fixtures/`.
 
 ## Rodar localmente
 
@@ -20,6 +28,13 @@ npm install
 npm run dev      # http://localhost:3000
 npm test         # testes do motor de cálculo
 ```
+
+## Publicar na Vercel
+
+1. Crie uma conta em vercel.com entrando com o GitHub.
+2. "Add New Project" e importe o repositório `analise-clientes`. A Vercel detecta o Next.js sozinha.
+3. Em Settings > Environment Variables, cadastre as variáveis do Integra Contador abaixo.
+4. Proteja o acesso (Settings > Deployment Protection) para que só a equipe do escritório abra o app.
 
 ## Integra Contador
 

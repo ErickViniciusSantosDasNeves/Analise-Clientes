@@ -3,6 +3,7 @@ import { analisarMei, parcelamentoMei } from "@/lib/motor/mei";
 import type { EntradaMei } from "@/lib/motor/tipos";
 
 const base: EntradaMei = {
+  dataBase: "2026-06-01",
   situacao: "ATIVA",
   faturamento12m: 60000,
   atividade: "servico",

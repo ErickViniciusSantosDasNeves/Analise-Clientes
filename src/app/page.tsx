@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import type { Cadastro } from "@/lib/fontes/brasilapi";
 import { analisarMei } from "@/lib/motor/mei";
-import { MEI } from "@/lib/motor/parametros";
+import { MEI_REGRAS as MEI } from "@/lib/motor/parametros";
+import type { RelatorioSituacaoFiscal } from "@/lib/relatorio/situacao-fiscal";
 import type { Atividade, Cenario, Debito, EntradaMei, TipoDebito } from "@/lib/motor/tipos";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -45,6 +46,31 @@ export default function Pagina() {
   const [debitos, setDebitos] = useState<Debito[]>([]);
   const [novo, setNovo] = useState<{ tipo: TipoDebito; competencia: string; valor: string }>({ tipo: "DAS", competencia: "", valor: "" });
   const [msgIntegra, setMsgIntegra] = useState("");
+  const [relatorio, setRelatorio] = useState<RelatorioSituacaoFiscal | null>(null);
+  const [msgRelatorio, setMsgRelatorio] = useState("");
+
+  async function lerRelatorio(arquivo: File | undefined) {
+    if (!arquivo) return;
+    setMsgRelatorio("Lendo o relatório...");
+    try {
+      const form = new FormData();
+      form.append("arquivo", arquivo);
+      const r = await fetch("/api/relatorio", { method: "POST", body: form });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.erro);
+      const rel: RelatorioSituacaoFiscal = j.relatorio;
+      setRelatorio(rel);
+      if (!cnpj && rel.cnpj) setCnpj(formatarCnpj(rel.cnpj));
+      if (cnpj && rel.cnpj && limparCnpj(cnpj) !== rel.cnpj) {
+        setMsgRelatorio(`Atenção: o relatório é do CNPJ ${formatarCnpj(rel.cnpj)}, diferente do consultado. Nada foi importado.`);
+        return;
+      }
+      setDebitos((d) => [...d.filter((x) => x.origem !== "upload"), ...j.debitos]);
+      setMsgRelatorio(`${j.debitos.length} pendência(s) importadas do relatório emitido em ${rel.emitidoEm ?? "data não informada"}.`);
+    } catch (e) {
+      setMsgRelatorio((e as Error).message);
+    }
+  }
 
   async function buscarCadastro() {
     setErro("");
@@ -88,7 +114,7 @@ export default function Pagina() {
   }
 
   const entrada: EntradaMei = {
-    situacao: cadastro?.situacao ?? "ATIVA",
+    situacao: cadastro?.situacao ?? relatorio?.situacao ?? "ATIVA",
     faturamento12m: num(faturamento),
     atividade,
     atividadePermitidaMei: permitida,
@@ -157,31 +183,47 @@ export default function Pagina() {
             <input type="checkbox" checked={permitida} onChange={(e) => setPermitida(e.target.checked)} /> Atividades permitidas ao MEI
           </label>
         </div>
-        <p className="nota">Limite do MEI usado: {brl(MEI.limiteAnual)} por ano.</p>
+        <p className="nota">Limite do MEI usado: {brl(resultado.parametros.limiteMei)} por ano.</p>
       </section>
 
       <section className="card">
         <h2>3. Mapa de pendências · total {brl(resultado.totalDebitos)}</h2>
         <div className="linha nao-imprimir" style={{ marginBottom: 12 }}>
           <button className="sec" onClick={buscarIntegra} disabled={!cnpjValido(cnpj)}>Buscar no Integra Contador</button>
-          {msgIntegra && <span className="nota">{msgIntegra}</span>}
+          <label className="sec-arquivo">
+            <span className="botao-sec">Ler relatório de situação fiscal (PDF)</span>
+            <input type="file" accept="application/pdf" onChange={(e) => { lerRelatorio(e.target.files?.[0]); e.target.value = ""; }} hidden />
+          </label>
         </div>
+        {msgIntegra && <p className="nota nao-imprimir">{msgIntegra}</p>}
+        {msgRelatorio && <p className="nota nao-imprimir">{msgRelatorio}</p>}
+        {relatorio && (
+          <div className="grade" style={{ marginBottom: 12 }}>
+            <div><span>Relatório de situação fiscal</span>{relatorio.razaoSocial ?? "-"}</div>
+            <div><span>Situação no relatório</span>{relatorio.situacao ?? "-"}</div>
+            <div><span>Porte</span>{relatorio.porte ?? "-"}</div>
+            <div><span>Simples Nacional</span>{relatorio.periodosSimples.map((p) => `${p.inclusao} a ${p.exclusao ?? "atual"}`).join("; ") || "-"}</div>
+            {relatorio.certidao && <div><span>Última certidão</span>{relatorio.certidao.tipo}, validade {relatorio.certidao.validade}</div>}
+            {relatorio.avisos.length > 0 && <div className="alerta" style={{ gridColumn: "1 / -1" }}>{relatorio.avisos.slice(0, 5).join(" ")}</div>}
+          </div>
+        )}
         <div className="tabela-rolagem">
           <table>
             <thead>
-              <tr><th>Pendência</th><th>Competência</th><th>Como resolve</th><th>Origem</th><th className="num">Valor atualizado</th><th className="nao-imprimir" /></tr>
+              <tr><th>Pendência</th><th>Competência</th><th>Situação</th><th>Como resolve</th><th>Origem</th><th className="num">Valor atualizado</th><th className="nao-imprimir" /></tr>
             </thead>
             <tbody>
               {debitos.length === 0 && (
-                <tr><td colSpan={6} className="nota">Nenhuma pendência lançada.</td></tr>
+                <tr><td colSpan={7} className="nota">Nenhuma pendência lançada.</td></tr>
               )}
               {debitos.map((d, i) => (
                 <tr key={i}>
-                  <td>{TIPOS[d.tipo]}</td>
+                  <td>{TIPOS[d.tipo]}{d.origem !== "manual" && d.descricao ? <div className="nota">{d.descricao}</div> : null}</td>
                   <td>{d.competencia ?? "-"}</td>
+                  <td className="nota">{d.situacao ?? "-"}</td>
                   <td>{RESOLVE[d.tipo]}</td>
                   <td>{d.origem === "integra" ? "Integra Contador" : d.origem === "upload" ? "Relatório" : "Manual"}</td>
-                  <td className="num">{brl(d.tipo === "DASN_OMISSA" && d.valor <= 0 ? MEI.multaMinimaDasn : d.valor)}</td>
+                  <td className="num">{d.tipo === "DASN_OMISSA" && d.valor <= 0 ? brl(MEI.multaMinimaDasn) : d.valor > 0 ? brl(d.valor) : <span className="nota">sem valor no relatório</span>}</td>
                   <td className="nao-imprimir"><button className="mini" onClick={() => setDebitos(debitos.filter((_, j) => j !== i))}>remover</button></td>
                 </tr>
               ))}
@@ -192,7 +234,7 @@ export default function Pagina() {
                   </select>
                 </td>
                 <td><input value={novo.competencia} onChange={(e) => setNovo({ ...novo, competencia: e.target.value })} placeholder="2024-03" size={8} /></td>
-                <td colSpan={2} className="nota">{novo.tipo === "DASN_OMISSA" ? `Sem valor, usa multa mínima de ${brl(MEI.multaMinimaDasn)}` : ""}</td>
+                <td colSpan={3} className="nota">{novo.tipo === "DASN_OMISSA" ? `Sem valor, usa multa mínima de ${brl(MEI.multaMinimaDasn)}` : ""}</td>
                 <td className="num"><input value={novo.valor} onChange={(e) => setNovo({ ...novo, valor: e.target.value })} placeholder="0,00" size={9} inputMode="decimal" /></td>
                 <td><button onClick={adicionarDebito}>Adicionar</button></td>
               </tr>
@@ -210,6 +252,14 @@ export default function Pagina() {
         <p className="nota">
           Desembolso em 12 meses = regularização exigida no caminho + custos únicos + 12 meses de custo mensal. Estimativa de apoio à decisão; valores legais em revisão pelo contador.
         </p>
+        <details className="nota" style={{ marginBottom: 12 }}>
+          <summary>Valores legais usados (vigentes em {resultado.parametros.data.split("-").reverse().join("/")})</summary>
+          <ul>
+            {resultado.parametros.fontes.map((f) => (
+              <li key={f.item}>{f.item}: {f.fonte}, desde {f.vigenteDesde.split("-").reverse().join("/")}</li>
+            ))}
+          </ul>
+        </details>
         <div className="linha nao-imprimir"><button onClick={() => window.print()}>Imprimir ou salvar PDF</button></div>
         <p className="so-impressao nota">Relatório gerado em {new Date().toLocaleDateString("pt-BR")} · NEVES CONT</p>
       </section>

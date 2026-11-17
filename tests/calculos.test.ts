@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { aliquotaEfetivaSimples, anexoSimples, dasMei, inssProLabore, irrfProLabore } from "@/lib/motor/calculos";
+import { aliquotaEfetivaSimples, anexoSimples, dasMei as dasMeiP, inssProLabore as inssP, irrfProLabore as irrfP } from "@/lib/motor/calculos";
+import { parametrosEm } from "@/lib/motor/parametros";
+
+const p26 = parametrosEm("2026-06-01");
+const dasMei = (a: Parameters<typeof dasMeiP>[0]) => dasMeiP(a, p26);
+const inssProLabore = (v: number) => inssP(v, p26);
+const irrfProLabore = (v: number) => irrfP(v, p26);
 
 describe("cálculos", () => {
   it("DAS do MEI por atividade", () => {

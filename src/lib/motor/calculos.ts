@@ -1,22 +1,23 @@
-import { ANEXOS_SIMPLES, FATOR_R_MINIMO, INSS_PRO_LABORE, IRPF, MEI, SALARIO_MINIMO } from "./parametros";
+import { ALIQUOTA_INSS_PRO_LABORE, FATOR_R_MINIMO, MEI_REGRAS, parametrosEm, type Parametros } from "./parametros";
 import type { Atividade } from "./tipos";
 
 export const arred = (v: number) => Math.round(v * 100) / 100;
 
 /** DAS mensal do MEI conforme a atividade. */
-export function dasMei(atividade: Atividade): number {
-  const inss = SALARIO_MINIMO * MEI.aliquotaInss;
-  const icms = atividade === "comercio" || atividade === "industria" ? MEI.icmsMensal : 0;
-  const iss = atividade === "servico" ? MEI.issMensal : 0;
+export function dasMei(atividade: Atividade, p: Parametros = parametrosEm()): number {
+  const inss = p.salarioMinimo * MEI_REGRAS.aliquotaInss;
+  const icms = atividade === "comercio" || atividade === "industria" ? MEI_REGRAS.icmsMensal : 0;
+  const iss = atividade === "servico" ? MEI_REGRAS.issMensal : 0;
   return arred(inss + icms + iss);
 }
 
-export type Anexo = keyof typeof ANEXOS_SIMPLES;
+export type Anexo = "I" | "II" | "III" | "V";
 
 /** Alíquota efetiva do Simples: (RBT12 × nominal − dedução) / RBT12. */
-export function aliquotaEfetivaSimples(rbt12: number, anexo: Anexo): number {
-  if (rbt12 <= 0) return ANEXOS_SIMPLES[anexo][0].aliquota;
-  const faixa = ANEXOS_SIMPLES[anexo].find((f) => rbt12 <= f.ate);
+export function aliquotaEfetivaSimples(rbt12: number, anexo: Anexo, p: Parametros = parametrosEm()): number {
+  const tabela = p.anexosSimples[anexo];
+  if (rbt12 <= 0) return tabela[0].aliquota;
+  const faixa = tabela.find((f) => rbt12 <= f.ate);
   if (!faixa) throw new Error("Receita acima do limite do Simples Nacional");
   return (rbt12 * faixa.aliquota - faixa.deducao) / rbt12;
 }
@@ -29,22 +30,21 @@ export function anexoSimples(atividade: Atividade, folha12m: number, rbt12: numb
   return { anexo: fatorR >= FATOR_R_MINIMO ? "III" : "V", fatorR };
 }
 
-export function inssProLabore(proLabore: number): number {
-  return arred(Math.min(proLabore, INSS_PRO_LABORE.teto) * INSS_PRO_LABORE.aliquota);
+export function inssProLabore(proLabore: number, p: Parametros = parametrosEm()): number {
+  return arred(Math.min(proLabore, p.tetoInss) * ALIQUOTA_INSS_PRO_LABORE);
 }
 
-/** IRRF mensal sobre o pró-labore, com a dedução mais vantajosa e a redução de 2026. */
-export function irrfProLabore(proLabore: number): number {
-  const inss = inssProLabore(proLabore);
-  const deducao = Math.max(inss, IRPF.descontoSimplificado);
+/** IRRF mensal sobre o pró-labore, com a dedução mais vantajosa e a redução vigente. */
+export function irrfProLabore(proLabore: number, p: Parametros = parametrosEm()): number {
+  const inss = inssProLabore(proLabore, p);
+  const deducao = Math.max(inss, p.irpf.descontoSimplificado);
   const base = Math.max(0, proLabore - deducao);
-  const faixa = IRPF.faixas.find((f) => base <= f.ate)!;
+  const faixa = p.irpf.faixas.find((f) => base <= f.ate)!;
   let imposto = Math.max(0, base * faixa.aliquota - faixa.deducao);
-  const r = IRPF.reducao;
-  if (proLabore <= r.isencaoAte) {
-    imposto = Math.max(0, imposto - r.reducaoMaxima);
-  } else if (proLabore <= r.faixaFinal) {
-    imposto = Math.max(0, imposto - Math.max(0, r.constante - r.fator * proLabore));
+  const r = p.irpf.reducao;
+  if (r) {
+    if (proLabore <= r.isencaoAte) imposto = Math.max(0, imposto - r.reducaoMaxima);
+    else if (proLabore <= r.faixaFinal) imposto = Math.max(0, imposto - Math.max(0, r.constante - r.fator * proLabore));
   }
   return arred(imposto);
 }

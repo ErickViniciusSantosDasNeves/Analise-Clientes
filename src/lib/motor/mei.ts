@@ -1,5 +1,5 @@
 import { arred, aliquotaEfetivaSimples, anexoSimples, dasMei, inssProLabore, irrfProLabore } from "./calculos";
-import { FATOR_R_MINIMO, FGTS, MEI } from "./parametros";
+import { FATOR_R_MINIMO, FGTS, MEI_REGRAS as MEI, parametrosEm, type Parametros } from "./parametros";
 import type { Cenario, CodigoCenario, EntradaMei, LinhaCusto, ResultadoAnalise } from "./tipos";
 
 const soma = (linhas: LinhaCusto[]) => arred(linhas.reduce((s, l) => s + l.valor, 0));
@@ -20,18 +20,18 @@ export function parcelamentoMei(total: number) {
   return { parcelas, valor: arred(total / parcelas) };
 }
 
-function custoMensalMe(e: EntradaMei): { linhas: LinhaCusto[]; regime: string; alertas: string[] } {
+function custoMensalMe(e: EntradaMei, p: Parametros): { linhas: LinhaCusto[]; regime: string; alertas: string[] } {
   const alertas: string[] = [];
   const rbt12 = e.faturamento12m;
   const folha12m = (e.proLaboreMensal + e.salarioEmpregado) * 12;
   const { anexo, fatorR } = anexoSimples(e.atividade, folha12m, rbt12);
-  const aliquota = aliquotaEfetivaSimples(rbt12, anexo);
+  const aliquota = aliquotaEfetivaSimples(rbt12, anexo, p);
   const linhas: LinhaCusto[] = [
     { item: `DAS Simples Nacional (Anexo ${anexo}, ${(aliquota * 100).toFixed(2)}%)`, valor: arred((rbt12 / 12) * aliquota) },
   ];
   if (e.proLaboreMensal > 0) {
-    linhas.push({ item: "INSS do sócio sobre o pró-labore (11%)", valor: inssProLabore(e.proLaboreMensal) });
-    const ir = irrfProLabore(e.proLaboreMensal);
+    linhas.push({ item: "INSS do sócio sobre o pró-labore (11%)", valor: inssProLabore(e.proLaboreMensal, p) });
+    const ir = irrfProLabore(e.proLaboreMensal, p);
     if (ir > 0) linhas.push({ item: "IRRF sobre o pró-labore", valor: ir });
   }
   if (e.salarioEmpregado > 0) linhas.push({ item: "FGTS do empregado (8%)", valor: arred(e.salarioEmpregado * FGTS) });
@@ -48,9 +48,10 @@ function custoMensalMe(e: EntradaMei): { linhas: LinhaCusto[]; regime: string; a
 }
 
 export function analisarMei(e: EntradaMei): ResultadoAnalise {
+  const p = parametrosEm(e.dataBase);
   const debitos = totalDebitos(e);
   const parcelamento = parcelamentoMei(debitos);
-  const limiteComTolerancia = MEI.limiteAnual * (1 + MEI.toleranciaExcesso);
+  const limiteComTolerancia = p.limiteMei * (1 + MEI.toleranciaExcesso);
   const inapta = e.situacao === "INAPTA";
   const omissas = e.debitos.filter((d) => d.tipo === "DASN_OMISSA").length;
 
@@ -64,13 +65,13 @@ export function analisarMei(e: EntradaMei): ResultadoAnalise {
   if (e.faturamento12m > limiteComTolerancia) {
     viavelA = false;
     alertasA.push(`Faturamento acima de R$ ${limiteComTolerancia.toLocaleString("pt-BR")}: desenquadramento retroativo ao início do ano.`);
-  } else if (e.faturamento12m > MEI.limiteAnual) {
+  } else if (e.faturamento12m > p.limiteMei) {
     viavelA = false;
     alertasA.push("Faturamento acima do limite do MEI, dentro dos 20% de tolerância: desenquadra em janeiro e paga DAS complementar sobre o excesso.");
   }
   if (inapta) alertasA.push(`CNPJ inapto: entregar ${omissas || "as"} DASN-SIMEI em atraso para reativar.`);
   const mensalA: LinhaCusto[] = [
-    { item: "DAS MEI", valor: dasMei(e.atividade) },
+    { item: "DAS MEI", valor: dasMei(e.atividade, p) },
     { item: "Honorários contábeis (MEI)", valor: e.honorarios.meiMensal },
   ];
   if (e.salarioEmpregado > 0) {
@@ -107,7 +108,7 @@ export function analisarMei(e: EntradaMei): ResultadoAnalise {
     alertas: ["Indicado quando o cliente vai parar a atividade."],
   };
 
-  const me = custoMensalMe(e);
+  const me = custoMensalMe(e, p);
 
   // C. Baixar com os débitos e abrir nova empresa no Simples
   const unicoC: LinhaCusto[] = [
@@ -162,5 +163,5 @@ export function analisarMei(e: EntradaMei): ResultadoAnalise {
       justificativa += " Atenção: o débito antigo não some, só deixa de ser exigido para abrir a nova empresa.";
     }
   }
-  return { totalDebitos: debitos, cenarios, recomendado: melhor?.codigo as CodigoCenario | undefined, justificativa };
+  return { parametros: p, totalDebitos: debitos, cenarios, recomendado: melhor?.codigo as CodigoCenario | undefined, justificativa };
 }

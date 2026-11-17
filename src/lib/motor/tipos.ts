@@ -14,12 +14,16 @@ export interface Debito {
   competencia?: string;
   /** Valor atualizado (principal + multa + juros), como vem do relatório. */
   valor: number;
+  /** Situação informada pela fonte (ex.: "EM NEGOCIACAO DE PARCELAMENTO"). */
+  situacao?: string;
   origem: "integra" | "upload" | "manual";
 }
 
 export type SituacaoCadastral = "ATIVA" | "INAPTA" | "SUSPENSA" | "BAIXADA" | "NULA" | "DESCONHECIDA";
 
 export interface EntradaMei {
+  /** Data da análise (AAAA-MM-DD) para escolher os valores legais vigentes. Padrão: hoje. */
+  dataBase?: string;
   situacao: SituacaoCadastral;
   /** Receita bruta esperada nos próximos 12 meses. */
   faturamento12m: number;
@@ -69,6 +73,7 @@ export interface Cenario {
 }
 
 export interface ResultadoAnalise {
+  parametros: import("./parametros").Parametros;
   totalDebitos: number;
   cenarios: Cenario[];
   recomendado?: CodigoCenario;
