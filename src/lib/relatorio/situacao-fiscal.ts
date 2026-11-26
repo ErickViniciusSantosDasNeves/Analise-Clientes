@@ -220,7 +220,13 @@ export function lerSituacaoFiscal(linhasBrutas: string[]): RelatorioSituacaoFisc
 function tipoDebito(p: PendenciaRelatorio): TipoDebito {
   if (p.secao === "SIDA") return "DIVIDA_ATIVA";
   if (p.secao === "SISPAR") return "PARCELAMENTO";
-  if (p.secao === "OMISSAO") return /DASN|SIMEI/i.test(p.receita + p.tituloSecao) ? "DASN_OMISSA" : "OUTRO";
+  if (p.secao === "OMISSAO") {
+    const t = p.receita + " " + p.tituloSecao;
+    if (/DASN|SIMEI/i.test(t)) return "DASN_OMISSA";
+    if (/PGDAS/i.test(t)) return "PGDAS_OMISSA";
+    if (/DEFIS/i.test(t)) return "DEFIS_OMISSA";
+    return "OUTRO";
+  }
   if (p.secao === "SIMEI" || p.secao === "SIMPLES") return "DAS";
   return "OUTRO";
 }

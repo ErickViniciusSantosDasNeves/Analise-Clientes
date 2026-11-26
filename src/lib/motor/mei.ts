@@ -5,8 +5,11 @@ import type { Cenario, CodigoCenario, EntradaMei, LinhaCusto, ResultadoAnalise }
 const soma = (linhas: LinhaCusto[]) => arred(linhas.reduce((s, l) => s + l.valor, 0));
 
 /** Valor de cada débito; declaração omissa sem valor informado conta a multa mínima. */
-export function valorDebito(d: EntradaMei["debitos"][number]): number {
-  if (d.tipo === "DASN_OMISSA" && d.valor <= 0) return MEI.multaMinimaDasn;
+export function valorDebito(d: EntradaMei["debitos"][number], p: Parametros = parametrosEm()): number {
+  if (d.valor > 0) return d.valor;
+  if (d.tipo === "DASN_OMISSA") return MEI.multaMinimaDasn;
+  if (d.tipo === "PGDAS_OMISSA") return p.multasSimples.pgdasMensal;
+  if (d.tipo === "DEFIS_OMISSA") return p.multasSimples.defisAnual;
   return d.valor;
 }
 

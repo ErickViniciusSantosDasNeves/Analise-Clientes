@@ -11,6 +11,18 @@ Primeira etapa: **MEI**. Depois: Simples Nacional, Lucro Presumido e Lucro Real.
 4. Calcula o custo de 12 meses de cada caminho (DAS, Simples com fator R, INSS e IRRF do pró-labore, honorários), com a dívida total à parte, e marca o menor.
 5. Imprime ou salva em PDF para o cliente.
 
+## O que a etapa do Simples Nacional faz
+
+Aparece quando o CNPJ é optante pelo Simples (ou com "Analisar como Simples Nacional mesmo assim").
+
+1. Declarações e parcelamentos pelo Integra Contador: PGDAS-D transmitidos por mês (PGDASD), DEFIS (DEFIS) e pedidos de parcelamento (PARCSN). Meses sem PGDAS-D e anos sem DEFIS já vencidos entram no mapa de débitos com a multa mínima. DAS em aberto, dívida ativa e parcelamentos com valor continuam vindo do relatório de situação fiscal.
+2. Apuração do DAS por atividade (receitas segregadas), Anexos I a V, com a partilha de cada tributo, limite do ISS de 5%, fator R, sublimite de R$ 3,6 milhões (ICMS e ISS por fora), limite de R$ 4,8 milhões, CPP fora do DAS no Anexo IV, ICMS-ST, PIS/Cofins monofásico, ISS retido e exportação. RBT12 proporcional no início de atividade.
+3. Pró-labore pelo fator R: quanto de pró-labore leva ao Anexo III e se a economia no DAS supera o INSS e o IRRF a mais.
+4. Caminhos: (A) regularizar e permanecer no Simples, (B) permanecer com o pró-labore do fator R, (C) migrar para o Lucro Presumido (com a majoração da LC 224/2025), (D) regularizar e dar baixa (só o honorário). A dívida total aparece à parte.
+5. Reforma Tributária: Simples puro x Simples híbrido x Lucro Presumido de 2026 a 2033, com o crédito de IBS/CBS que o comprador aproveita.
+
+Os códigos dos serviços DEFIS e PARCSN do Integra Contador estão marcados para conferir no catálogo do Serpro (`src/lib/fontes/integra-contador.ts`).
+
 ## Valores legais por vigência
 
 Os valores legais ficam em `src/lib/motor/parametros.ts`, cada um com o histórico de versões: data em que passa a valer e a norma.

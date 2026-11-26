@@ -27,6 +27,12 @@ export const SERVICOS = {
   pgmeiDividaAtiva: { idSistema: "PGMEI", idServico: "DIVIDAATIVA24", versaoSistema: "1.0", endpoint: "Consultar" },
   sitfisSolicitarProtocolo: { idSistema: "SITFIS", idServico: "SOLICITARPROTOCOLO91", versaoSistema: "2.0", endpoint: "Apoiar" },
   sitfisEmitirRelatorio: { idSistema: "SITFIS", idServico: "RELATORIOSITFIS92", versaoSistema: "2.0", endpoint: "Emitir" },
+  /** Declarações PGDAS-D transmitidas e DAS gerados, por ano-calendário. */
+  pgdasdDeclaracoes: { idSistema: "PGDASD", idServico: "CONSDECLARACAO13", versaoSistema: "1.0", endpoint: "Consultar" },
+  /** DEFIS transmitidas (CONFERIR código no catálogo do Serpro). */
+  defisDeclaracoes: { idSistema: "DEFIS", idServico: "CONSDECLARACAO142", versaoSistema: "1.0", endpoint: "Consultar" },
+  /** Pedidos de parcelamento do Simples (PARCSN) (CONFERIR código no catálogo do Serpro). */
+  parcsnPedidos: { idSistema: "PARCSN", idServico: "PEDIDOSPARC163", versaoSistema: "1.0", endpoint: "Consultar" },
 } satisfies Record<string, Servico>;
 
 interface Config {

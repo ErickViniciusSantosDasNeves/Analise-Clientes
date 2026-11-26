@@ -4,6 +4,8 @@ export type TipoDebito =
   | "DAS" // DAS do MEI em aberto, ainda na Receita
   | "DIVIDA_ATIVA" // já inscrito em dívida ativa (PGFN)
   | "DASN_OMISSA" // declaração anual não entregue
+  | "PGDAS_OMISSA" // PGDAS-D do mês não transmitido (Simples)
+  | "DEFIS_OMISSA" // DEFIS do ano não entregue (Simples)
   | "PARCELAMENTO" // saldo de parcelamento ativo
   | "OUTRO";
 

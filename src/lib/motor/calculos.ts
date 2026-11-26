@@ -11,7 +11,7 @@ export function dasMei(atividade: Atividade, p: Parametros = parametrosEm()): nu
   return arred(inss + icms + iss);
 }
 
-export type Anexo = "I" | "II" | "III" | "V";
+export type Anexo = import("./parametros").AnexoSimples;
 
 /** Alíquota efetiva do Simples: (RBT12 × nominal − dedução) / RBT12. */
 export function aliquotaEfetivaSimples(rbt12: number, anexo: Anexo, p: Parametros = parametrosEm()): number {
