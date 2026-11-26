@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { cnpjValido, formatarCnpj, limparCnpj } from "@/lib/cnpj";
 import type { Cadastro } from "@/lib/fontes/brasilapi";
-import { MEI_REGRAS as MEI } from "@/lib/motor/parametros";
 import type { RelatorioSituacaoFiscal } from "@/lib/relatorio/situacao-fiscal";
 import type { Debito, Orgao, TipoDebito } from "@/lib/motor/tipos";
 import { ORGAOS, agruparPorOrgao } from "@/lib/motor/debitos";
+import { valorDebito } from "@/lib/motor/mei";
+import AnaliseSimples from "./simples";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const num = (s: string) => Number(s.replace(/\./g, "").replace(",", ".")) || 0;
@@ -15,14 +16,18 @@ const TIPOS: Record<TipoDebito, string> = {
   DAS: "DAS em aberto",
   DIVIDA_ATIVA: "Dívida ativa (PGFN)",
   DASN_OMISSA: "DASN-SIMEI não entregue",
+  PGDAS_OMISSA: "PGDAS-D não transmitido",
+  DEFIS_OMISSA: "DEFIS não entregue",
   PARCELAMENTO: "Saldo de parcelamento",
   OUTRO: "Outro",
 };
 
 const RESOLVE: Record<TipoDebito, string> = {
-  DAS: "Pagar ou parcelar (PARCMEI)",
+  DAS: "Pagar ou parcelar (PARCMEI ou PARCSN)",
   DIVIDA_ATIVA: "Pagar, parcelar ou transação no Regularize",
   DASN_OMISSA: "Entregar a declaração e pagar a multa",
+  PGDAS_OMISSA: "Transmitir o PGDAS-D, pagar a MAED e o DAS do mês",
+  DEFIS_OMISSA: "Entregar a DEFIS e pagar a multa",
   PARCELAMENTO: "Manter em dia ou quitar",
   OUTRO: "Analisar",
 };
@@ -40,6 +45,7 @@ export default function Pagina() {
   const [msgIntegra, setMsgIntegra] = useState("");
   const [integraAtivo, setIntegraAtivo] = useState(false);
   const [pdfReceita, setPdfReceita] = useState<string | null>(null);
+  const [verSimples, setVerSimples] = useState(false);
 
   useEffect(() => {
     fetch("/api/integra")
@@ -133,7 +139,7 @@ export default function Pagina() {
   function adicionarDebito() {
     const original = num(novo.original), multa = num(novo.multa), juros = num(novo.juros);
     const valor = Math.round((original + multa + juros) * 100) / 100;
-    if (novo.tipo !== "DASN_OMISSA" && valor <= 0) return;
+    if (!/_OMISSA$/.test(novo.tipo) && valor <= 0) return;
     setDebitos((d) => [
       ...d,
       {
@@ -158,7 +164,7 @@ export default function Pagina() {
   return (
     <main>
       <header className="topo">
-        <h1>Análise de cliente · débitos e situação fiscal</h1>
+        <h1>Análise de cliente · débitos, situação fiscal e Simples Nacional</h1>
         <span className="marca">NEVES CONT</span>
       </header>
 
@@ -254,7 +260,7 @@ export default function Pagina() {
                       <td className="num">{d.valorOriginal !== undefined ? brl(d.valorOriginal) : "-"}</td>
                       <td className="num">{d.multa !== undefined ? brl(d.multa) : "-"}</td>
                       <td className="num">{d.juros !== undefined ? brl(d.juros) : "-"}</td>
-                      <td className="num"><strong>{d.tipo === "DASN_OMISSA" && d.valor <= 0 ? brl(MEI.multaMinimaDasn) : d.valor > 0 ? brl(d.valor) : <span className="nota">sem valor</span>}</strong></td>
+                      <td className="num"><strong>{valorDebito(d) > 0 ? brl(valorDebito(d)) : <span className="nota">sem valor</span>}</strong></td>
                       <td className="nota">{d.situacao ?? "-"}</td>
                       <td className="nao-imprimir"><button className="mini" onClick={() => setDebitos(debitos.filter((_, j) => j !== indice))}>remover</button></td>
                     </tr>
@@ -300,13 +306,22 @@ export default function Pagina() {
           </div>
           <div className="linha" style={{ marginTop: 8 }}>
             <button onClick={adicionarDebito}>Adicionar débito</button>
-            <span className="nota">Total = original + multa + juros{novo.tipo === "DASN_OMISSA" ? `. Declaração sem valor usa a multa mínima de ${brl(MEI.multaMinimaDasn)}` : ""}.</span>
+            <span className="nota">Total = original + multa + juros{/_OMISSA$/.test(novo.tipo) ? `. Declaração sem valor usa a multa mínima de ${brl(valorDebito({ tipo: novo.tipo, descricao: "", valor: 0, origem: "manual" }))}` : ""}.</span>
           </div>
         </details>
         <div className="linha nao-imprimir" style={{ marginTop: 12 }}><button onClick={() => window.print()}>Imprimir ou salvar PDF</button></div>
         <p className="so-impressao nota">Relatório gerado em {new Date().toLocaleDateString("pt-BR")} · NEVES CONT</p>
       </section>
 
+      {cadastro && !cadastro.optanteMei && !cadastro.optanteSimples && !verSimples && (
+        <section className="card nao-imprimir">
+          <p className="nota">A empresa não aparece como optante pelo Simples no cadastro público.</p>
+          <button className="sec" onClick={() => setVerSimples(true)}>Analisar como Simples Nacional mesmo assim</button>
+        </section>
+      )}
+      {cadastro && !cadastro.optanteMei && (cadastro.optanteSimples || verSimples) && (
+        <AnaliseSimples cnpj={limparCnpj(cnpj)} cadastro={cadastro} relatorio={relatorio} debitos={debitos} setDebitos={setDebitos} integraAtivo={integraAtivo} />
+      )}
     </main>
   );
 }
